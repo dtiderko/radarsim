@@ -2,6 +2,7 @@
 name = "radarsim"
 version = "0.1.0"
 edition = "2024"
+publish = false
 
 [profile.dev]
 opt-level = 1
@@ -22,3 +23,7 @@ strip = "debuginfo"
 bevy = "0.18.1"
 bevy_egui = "0.39.1"
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
+# rand = "0.10.1"
+
+[target.x86_64-unknown-linux-gnu.dependencies]
+bevy_dylib = { version = "0.18.0-rc.2" }
