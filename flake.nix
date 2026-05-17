@@ -34,28 +34,18 @@
 
         craneLib = (crane.mkLib pkgs).overrideToolchain (
           p:
-          p.rust-bin.selectLatestNightlyWith (
-            toolchain:
-            toolchain.default.override {
-              extensions = [
-                "rust-src"
-                "rust-analyzer"
-                "rustc-codegen-cranelift-preview"
-              ];
-              targets = [
-                "x86_64-unknown-linux-gnu"
-                "wasm32-unknown-unknown"
-              ];
-            }
-          )
+          p.rust-bin.stable.latest.default.override {
+            extensions = [
+              "rust-src"
+              "rust-analyzer"
+            ];
+            targets = [
+              "x86_64-unknown-linux-gnu"
+              "wasm32-unknown-unknown"
+            ];
+          }
         );
-        src = lib.fileset.toSource {
-          root = ./.;
-          fileset = lib.fileset.unions [
-            (craneLib.fileset.commonCargoSources ./.)
-            (lib.fileset.fileFilter (file: lib.any file.hasExt [ "html" ]) ./.)
-          ];
-        };
+        src = craneLib.cleanCargoSource ./.;
 
         # Common arguments can be set here to avoid repeating them later
         commonArgs = {
@@ -87,16 +77,6 @@
             inherit cargoArtifacts;
           }
         );
-        website = craneLib.buildTrunkPackage (
-          commonArgs
-          // {
-            CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
-            # The version of wasm-bindgen-cli here must match the one from Cargo.lock.
-            wasm-bindgen-cli = pkgs.wasm-bindgen-cli_0_2_121;
-            trunkExtraBuildArgs = "--cargo-profile=wasm-release";
-          }
-        );
-
         # scripts
         rundyn = pkgs.writeShellScriptBin "rundyn" ''
           cargo run --features bevy/dynamic_linking
@@ -136,11 +116,7 @@
           };
         };
 
-        packages = {
-          default = crate;
-          website = website;
-        };
-
+        packages.default = crate;
         apps.default = flake-utils.lib.mkApp {
           drv = crate;
         };
@@ -150,9 +126,10 @@
           checks = self.checks.${system};
 
           # additional packages
-          packages = [
+          packages = with pkgs; [
             rundyn
-            pkgs.http-server
+            http-server
+            wasm-bindgen-cli_0_2_121
           ];
 
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (

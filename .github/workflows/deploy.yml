@@ -22,12 +22,12 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@main
 
       - name: Build WASM website
-        run: nix build .#website
+        run: nix develop --command bash -c "bash build_website.sh"
 
       - name: Deploy to Website Branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./result
+          publish_dir: ./out
           publish_branch: website # The branch where built files will be stored
           force_orphan: true
