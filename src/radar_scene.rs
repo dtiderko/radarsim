@@ -31,7 +31,7 @@ fn render_cartesian(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    query: Query<(&Position, &Velocity, &Acceleration), With<Aircraft>>,
+    query: Query<&Position, With<Aircraft>>,
     tweaks: Res<Tweaks>,
 ) {
     let shape = meshes.add(Circle::new(25.0));
@@ -41,10 +41,12 @@ fn render_cartesian(
     let normrnd = rand_distr::Normal::new(0., 1.).unwrap();
 
     let mut points = Vec::with_capacity(query.count());
-    for (p, v, a) in query {
+    for p in query {
+        // Matrix H in the exercise is probably wrong and should be H=(I 0 0)
+        // Reason: It would not make sense to add the units: m + m/s + m/s^2
         points.push(Position {
-            x: p.x + v.x + a.x + tweaks.cartesian_sig * normrnd.sample(&mut rand::rng()),
-            y: p.y + v.y + a.y + tweaks.cartesian_sig * normrnd.sample(&mut rand::rng()),
+            x: p.x + tweaks.cartesian_sig * normrnd.sample(&mut rand::rng()),
+            y: p.y + tweaks.cartesian_sig * normrnd.sample(&mut rand::rng()),
         });
     }
 
@@ -78,18 +80,18 @@ fn render_polar(
     let mut points = Vec::with_capacity(query.count());
     for sen_p in sensors {
         for tar_p in query {
-            let error_x = tweaks.polar_sig_range * normrnd.sample(&mut rand::rng());
-            let error_y = tweaks.polar_sig_range * normrnd.sample(&mut rand::rng());
+            let error_range = tweaks.polar_sig_range * normrnd.sample(&mut rand::rng());
+            let error_azimuth =
+                tweaks.polar_sig_azimuth.to_radians() * normrnd.sample(&mut rand::rng());
 
             let dist_x = tar_p.x - sen_p.x;
             let dist_y = tar_p.y - sen_p.y;
 
-            let pos_x = (dist_x.powi(2) + dist_y.powi(2)).sqrt();
+            let true_range = (dist_x.powi(2) + dist_y.powi(2)).sqrt();
+            let true_azimuth = dist_y.atan2(dist_x); // arctan(dist_y / dist_x)
 
-            let pos_y = dist_y.atan2(dist_x); // arctan(dist_y / dist_x)
-
-            let range = pos_x + error_x;
-            let azimuth = pos_y + error_y;
+            let range = true_range + error_range;
+            let azimuth = true_azimuth + error_azimuth;
 
             let cartesian_x = range * azimuth.cos() + sen_p.x;
             let cartesian_y = range * azimuth.sin() + sen_p.y;
