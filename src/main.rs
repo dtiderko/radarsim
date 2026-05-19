@@ -5,6 +5,8 @@ use bevy::{
 };
 use bevy_egui::prelude::*;
 
+mod common;
+mod radar_scene;
 mod real_scene;
 
 fn main() {
@@ -13,6 +15,7 @@ fn main() {
         .add_plugins(Wireframe2dPlugin::default())
         .add_plugins(EguiPlugin::default())
         .add_plugins(real_scene::RealScene)
+        .add_plugins(radar_scene::RadarScene)
         .add_systems(Startup, setup_camera_system)
         .add_systems(
             Update,

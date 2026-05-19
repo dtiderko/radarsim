@@ -1,35 +1,25 @@
 use bevy::prelude::*;
 
-const DISP_SCALE: f32 = 0.01;
-const TIME_SCALE: f32 = 100.;
+use crate::common::*;
 
 #[derive(Resource)]
 struct SimTime(f32);
 
-#[derive(Component)]
-struct Position {
-    x: f32,
-    y: f32,
-}
-
-#[derive(Component)]
-struct Aircraft;
-
 pub struct RealScene;
 impl Plugin for RealScene {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_scene)
+        app.insert_resource(SimTime(0.))
+            .add_systems(Startup, setup_aircraft)
+            .add_systems(Startup, setup_sensor)
             .add_systems(Update, (move_aircraft, update_render).chain());
     }
 }
 
-fn setup_scene(
+fn setup_aircraft(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.insert_resource(SimTime(0.));
-
     let shape = meshes.add(Circle::new(5.0));
     let color = Color::srgb(1., 0., 0.);
     let pos = Position { x: 0.0, y: 0.0 };
@@ -42,13 +32,38 @@ fn setup_scene(
         Transform::from_xyz(pos.x, pos.y, 0.),
         // data
         pos,
+        Velocity::default(),
+        Acceleration::default(),
+    ));
+}
+
+fn setup_sensor(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    let shape = meshes.add(Circle::new(5.0));
+    let color = Color::srgb(0., 1., 0.);
+    let pos = Position {
+        x: 5000.0,
+        y: 3000.0,
+    };
+
+    commands.spawn((
+        Sensor,
+        // render
+        Mesh2d(shape),
+        MeshMaterial2d(materials.add(color)),
+        Transform::from_xyz(pos.x * DISP_SCALE, pos.y * DISP_SCALE, 0.),
+        // data
+        pos,
     ));
 }
 
 fn move_aircraft(
     time: Res<Time>,
     mut sim_time: ResMut<SimTime>,
-    mut query: Query<&mut Position, With<Aircraft>>,
+    mut query: Query<(&mut Position, &mut Velocity, &mut Acceleration), With<Aircraft>>,
 ) {
     const V: f32 = 300.;
     const Q: f32 = 9.;
@@ -58,9 +73,15 @@ fn move_aircraft(
 
     sim_time.0 += time.delta_secs() * TIME_SCALE;
 
-    for mut spos in &mut query {
-        spos.x = a * f32::sin(w * sim_time.0);
-        spos.y = a * f32::sin(2. * w * sim_time.0);
+    for (mut pos, mut vel, mut acc) in &mut query {
+        pos.x = a * f32::sin(w * sim_time.0);
+        pos.y = a * f32::sin(2. * w * sim_time.0);
+
+        vel.x = V * (f32::cos(w * sim_time.0) / 2.);
+        vel.y = V * f32::cos(2. * w * sim_time.0);
+
+        acc.x = -Q * (f32::sin(w * sim_time.0) / 4.);
+        acc.y = -Q * f32::sin(2. * w * sim_time.0);
     }
 }
 
