@@ -38,13 +38,13 @@ fn render_cartesian(
     let color = Color::srgb(0., 1., 1.);
     let material = materials.add(color);
 
-    let mut rng = rand::rng();
+    let normrnd = rand_distr::Normal::new(0., 1.).unwrap();
 
     let mut points = Vec::with_capacity(query.count());
     for (p, v, a) in query {
         points.push(Position {
-            x: (p.x + v.x + a.x + tweaks.cartesian_sig * rng.random_range(-1.0..=1.)),
-            y: (p.y + v.y + a.y + tweaks.cartesian_sig * rng.random_range(-1.0..=1.)),
+            x: p.x + v.x + a.x + tweaks.cartesian_sig * normrnd.sample(&mut rand::rng()),
+            y: p.y + v.y + a.y + tweaks.cartesian_sig * normrnd.sample(&mut rand::rng()),
         });
     }
 
@@ -73,13 +73,13 @@ fn render_polar(
     let color = Color::srgb(1., 1., 0.);
     let material = materials.add(color);
 
-    let mut rng = rand::rng();
+    let normrnd = rand_distr::Normal::new(0., 1.).unwrap();
 
     let mut points = Vec::with_capacity(query.count());
     for sen_p in sensors {
         for tar_p in query {
-            let error_x = tweaks.polar_sig_range * rng.random_range(-1.0..=1.);
-            let error_y = tweaks.polar_sig_range * rng.random_range(-1.0..=1.);
+            let error_x = tweaks.polar_sig_range * normrnd.sample(&mut rand::rng());
+            let error_y = tweaks.polar_sig_range * normrnd.sample(&mut rand::rng());
 
             let dist_x = tar_p.x - sen_p.x;
             let dist_y = tar_p.y - sen_p.y;
