@@ -1,4 +1,7 @@
-use bevy::prelude::*;
+use bevy::{
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    prelude::*,
+};
 use bevy_egui::prelude::*;
 
 use crate::common::*;
@@ -36,9 +39,9 @@ pub struct TweaksUi;
 
 impl Plugin for TweaksUi {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Tweaks>();
-
-        app.add_systems(EguiPrimaryContextPass, tweaks_ui)
+        app.add_plugins(FrameTimeDiagnosticsPlugin::default())
+            .init_resource::<Tweaks>()
+            .add_systems(EguiPrimaryContextPass, tweaks_ui)
             .add_systems(
                 Update,
                 (
@@ -57,11 +60,18 @@ fn tweaks_ui(
     mut tweaks: ResMut<Tweaks>,
     mut sim_time: ResMut<SimTime>,
     mut radar_sweep_counter: ResMut<RadarSweepCounter>,
+    diagnostics: Res<DiagnosticsStore>,
     cartesian_measurements: Query<Entity, With<CartesianMeasure>>,
     polar_measurements: Query<Entity, With<PolarMeasure>>,
 ) -> Result {
+    let fps = diagnostics
+        .get(&bevy::diagnostic::FrameTimeDiagnosticsPlugin::FPS)
+        .and_then(|d| d.average())
+        .unwrap_or(0.0);
+
     egui::Window::new("Tweaks").show(contexts.ctx_mut()?, |ui| {
         ui.heading("Values");
+        ui.label(format!("FPS: {:.0}", fps));
         ui.label(format!("Simtime: {:.2}s", sim_time.0));
         ui.label(format!("Radar Sweeps: {}", radar_sweep_counter.0));
 
