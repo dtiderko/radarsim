@@ -2,14 +2,10 @@ use bevy::prelude::*;
 
 use crate::common::*;
 
-#[derive(Resource)]
-struct SimTime(f32);
-
 pub struct RealScene;
 impl Plugin for RealScene {
     fn build(&self, app: &mut App) {
-        app.insert_resource(SimTime(0.))
-            .add_systems(Startup, setup_aircraft)
+        app.add_systems(Startup, setup_aircraft)
             .add_systems(Startup, setup_sensor)
             .add_systems(Update, (move_aircraft, update_render).chain());
     }
@@ -54,15 +50,14 @@ fn setup_sensor(
         // render
         Mesh2d(shape),
         MeshMaterial2d(materials.add(color)),
-        Transform::from_xyz(pos.x * DISP_SCALE, pos.y * DISP_SCALE, 0.),
+        Transform::from_xyz(pos.x, pos.y, 0.),
         // data
         pos,
     ));
 }
 
 fn move_aircraft(
-    time: Res<Time>,
-    mut sim_time: ResMut<SimTime>,
+    sim_time: Res<SimTime>,
     mut query: Query<(&mut Position, &mut Velocity, &mut Acceleration), With<Aircraft>>,
 ) {
     const V: f32 = 300.;
@@ -70,8 +65,6 @@ fn move_aircraft(
 
     let a = V.powi(2) / Q;
     let w = Q / (2. * V);
-
-    sim_time.0 += time.delta_secs() * TIME_SCALE;
 
     for (mut pos, mut vel, mut acc) in &mut query {
         pos.x = a * f32::sin(w * sim_time.0);
@@ -87,7 +80,7 @@ fn move_aircraft(
 
 fn update_render(mut query: Query<(&Position, &mut Transform), With<Aircraft>>) {
     for (sim_pos, mut render_pos) in &mut query {
-        render_pos.translation[0] = sim_pos.x * DISP_SCALE;
-        render_pos.translation[1] = sim_pos.y * DISP_SCALE;
+        render_pos.translation[0] = sim_pos.x;
+        render_pos.translation[1] = sim_pos.y;
     }
 }

@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 
-pub const DISP_SCALE: f32 = 0.03;
-pub const TIME_SCALE: f32 = 1.;
+#[derive(Resource)]
+pub struct SimTime(pub f32);
+
+#[derive(Resource)]
+pub struct RadarSweepCounter(pub u64);
 
 #[derive(Component, Debug)]
 pub struct Aircraft;

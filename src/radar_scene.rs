@@ -1,9 +1,8 @@
-use std::time::Duration;
-
-use bevy::{prelude::*, time::common_conditions::on_timer};
+use bevy::prelude::*;
 use rand::prelude::*;
 
 use crate::common::*;
+use crate::tweaks::*;
 
 #[derive(Component)]
 struct CartesianMeasure;
@@ -14,11 +13,23 @@ struct PolarMeasure;
 pub struct RadarScene;
 impl Plugin for RadarScene {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (render_cartesian, render_polar)
-                .run_if(on_timer(Duration::from_secs(5 / TIME_SCALE as u64))),
-        );
+        app.insert_resource(RadarSweepCounter(0))
+            .add_systems(Update, update_radar_sweep_counter)
+            .add_systems(
+                Update,
+                (render_cartesian, render_polar).run_if(resource_changed::<RadarSweepCounter>),
+            );
+    }
+}
+
+fn update_radar_sweep_counter(
+    sim_time: Res<SimTime>,
+    mut radar_sweep_counter: ResMut<RadarSweepCounter>,
+) {
+    let cur_sweep = (sim_time.0 / 5.).floor() as u64;
+
+    if cur_sweep > radar_sweep_counter.0 {
+        radar_sweep_counter.0 = cur_sweep;
     }
 }
 
@@ -27,9 +38,8 @@ fn render_cartesian(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     query: Query<(&Position, &Velocity, &Acceleration), With<Aircraft>>,
+    tweaks: Res<Tweaks>,
 ) {
-    const SIG: f32 = 50.;
-
     let shape = meshes.add(Circle::new(2.0));
     let color = Color::srgb(0., 1., 1.);
     let material = materials.add(color);
@@ -39,8 +49,8 @@ fn render_cartesian(
     let mut points = Vec::with_capacity(query.count());
     for (p, v, a) in query {
         points.push(Position {
-            x: (p.x + v.x + a.x + SIG * rng.random_range(-1.0..=1.)),
-            y: (p.y + v.y + a.y + SIG * rng.random_range(-1.0..=1.)),
+            x: (p.x + v.x + a.x + tweaks.cartesian_sig * rng.random_range(-1.0..=1.)),
+            y: (p.y + v.y + a.y + tweaks.cartesian_sig * rng.random_range(-1.0..=1.)),
         });
     }
 
@@ -50,7 +60,7 @@ fn render_cartesian(
             // render
             Mesh2d(shape.clone()),
             MeshMaterial2d(material.clone()),
-            Transform::from_xyz(p.x * DISP_SCALE, p.y * DISP_SCALE, 0.),
+            Transform::from_xyz(p.x, p.y, 0.),
             // data
             p,
         )
@@ -63,10 +73,8 @@ fn render_polar(
     mut materials: ResMut<Assets<ColorMaterial>>,
     query: Query<&Position, With<Aircraft>>,
     sensors: Query<&Position, With<Sensor>>,
+    tweaks: Res<Tweaks>,
 ) {
-    const SIG_RANGE: f32 = 20.;
-    const SIG_AZIMUTH: f32 = 0.2; // degrees
-
     let shape = meshes.add(Circle::new(2.0));
     let color = Color::srgb(1., 1., 0.);
     let material = materials.add(color);
@@ -76,8 +84,8 @@ fn render_polar(
     let mut points = Vec::with_capacity(query.count());
     for sen_p in sensors {
         for tar_p in query {
-            let error_x = SIG_RANGE * rng.random_range(-1.0..=1.);
-            let error_y = SIG_AZIMUTH * rng.random_range(-1.0..=1.);
+            let error_x = tweaks.polar_sig_range * rng.random_range(-1.0..=1.);
+            let error_y = tweaks.polar_sig_range * rng.random_range(-1.0..=1.);
 
             let dist_x = tar_p.x - sen_p.x;
             let dist_y = tar_p.y - sen_p.y;
