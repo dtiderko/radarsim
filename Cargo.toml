@@ -20,10 +20,22 @@ opt-level = "s"
 strip = "debuginfo"
 
 [dependencies]
-bevy = "0.18.1"
+bevy = { version = "0.18.1", default-features = false, features = [
+  # features of the 2d feature
+  "2d_bevy_render",
+  # "audio",
+  "default_app",
+  "default_platform",
+  "picking",
+  "scene",
+  # "ui",
+] }
 bevy_egui = "0.39.1"
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
-# rand = "0.10.1"
+rand = "0.10.1"
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 bevy_dylib = { version = "0.18.0-rc.2" }
+
+[target.'cfg(all(target_family = "wasm", any(target_os = "unknown", target_os = "none")))'.dependencies]
+getrandom = { version = "0.4.2", features = ["wasm_js"] }
