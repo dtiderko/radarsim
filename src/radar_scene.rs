@@ -35,8 +35,8 @@ fn render_cartesian(
     let mut points = Vec::with_capacity(query.count());
     for (p, v, a) in query {
         points.push(Position {
-            x: (p.x + v.x + a.x + SIG * rng.random_range(-1.0..=1.)) * DISP_SCALE,
-            y: (p.y + v.y + a.y + SIG * rng.random_range(-1.0..=1.)) * DISP_SCALE,
+            x: (p.x + v.x + a.x + SIG * rng.random_range(-1.0..=1.)),
+            y: (p.y + v.y + a.y + SIG * rng.random_range(-1.0..=1.)),
         });
     }
 
@@ -46,7 +46,7 @@ fn render_cartesian(
             // render
             Mesh2d(shape.clone()),
             MeshMaterial2d(material.clone()),
-            Transform::from_xyz(p.x, p.y, 0.),
+            Transform::from_xyz(p.x * DISP_SCALE, p.y * DISP_SCALE, 0.),
             // data
             p,
         )
