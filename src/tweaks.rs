@@ -58,12 +58,12 @@ fn tweaks_ui(
         ui.separator();
         ui.heading("Error");
 
-        ui.add(egui::Slider::new(&mut tweaks.cartesian_sig, 0.0..=200.0).text("Cartesian σ (m)"));
+        ui.add(egui::Slider::new(&mut tweaks.cartesian_sig, 0.0..=5000.0).text("Cartesian σ (m)"));
         ui.add(
-            egui::Slider::new(&mut tweaks.polar_sig_range, 0.0..=100.0).text("Polar Range σ (m)"),
+            egui::Slider::new(&mut tweaks.polar_sig_range, 0.0..=5000.0).text("Polar Range σ (m)"),
         );
         ui.add(
-            egui::Slider::new(&mut tweaks.polar_sig_azimuth, 0.0..=5.0)
+            egui::Slider::new(&mut tweaks.polar_sig_azimuth, 0.0..=360.0)
                 .text("Polar Azimuth σ (deg)"),
         );
     });
