@@ -11,6 +11,9 @@ pub struct Tweaks {
     pub cartesian_sig: f32,
     pub polar_sig_range: f32,
     pub polar_sig_azimuth: f32,
+
+    pub show_cartesian: bool,
+    pub show_polar: bool,
 }
 
 impl Default for Tweaks {
@@ -22,6 +25,9 @@ impl Default for Tweaks {
             cartesian_sig: 50.0,
             polar_sig_range: 20.0,
             polar_sig_azimuth: 0.2,
+
+            show_cartesian: true,
+            show_polar: true,
         }
     }
 }
@@ -35,22 +41,31 @@ impl Plugin for TweaksUi {
         app.add_systems(EguiPrimaryContextPass, tweaks_ui)
             .add_systems(
                 Update,
-                update_entity_sizes.run_if(resource_changed::<Tweaks>),
+                (
+                    update_entity_sizes,
+                    update_cartesian_visibility,
+                    update_polar_visibility,
+                )
+                    .run_if(resource_changed::<Tweaks>),
             );
     }
 }
 
 fn tweaks_ui(
     mut contexts: EguiContexts,
+    mut commands: Commands,
     mut tweaks: ResMut<Tweaks>,
-    sim_time: Res<SimTime>,
-    radar_sweep_counter: Res<RadarSweepCounter>,
+    mut sim_time: ResMut<SimTime>,
+    mut radar_sweep_counter: ResMut<RadarSweepCounter>,
+    cartesian_measurements: Query<Entity, With<CartesianMeasure>>,
+    polar_measurements: Query<Entity, With<PolarMeasure>>,
 ) -> Result {
     egui::Window::new("Tweaks").show(contexts.ctx_mut()?, |ui| {
         ui.heading("Values");
         ui.label(format!("Simtime: {:.2}s", sim_time.0));
         ui.label(format!("Radar Sweeps: {}", radar_sweep_counter.0));
 
+        ui.separator();
         ui.heading("World");
         ui.add(egui::Slider::new(&mut tweaks.entity_scale, 0.1..=4.0).text("Entity Scale"));
         ui.add(egui::Slider::new(&mut tweaks.time_scale, 0.0..=100.0).text("Time Scale"));
@@ -66,6 +81,21 @@ fn tweaks_ui(
             egui::Slider::new(&mut tweaks.polar_sig_azimuth, 0.0..=360.0)
                 .text("Polar Azimuth σ (deg)"),
         );
+
+        ui.separator();
+        ui.heading("Resets");
+        if ui.button("Reset simulation").clicked() {
+            sim_time.0 = 0.;
+            radar_sweep_counter.0 = 0;
+            for e in cartesian_measurements {
+                commands.entity(e).despawn()
+            }
+            for e in polar_measurements {
+                commands.entity(e).despawn()
+            }
+        }
+        ui.toggle_value(&mut tweaks.show_cartesian, "Show cartesian measurements");
+        ui.toggle_value(&mut tweaks.show_polar, "Show polar measurements");
     });
 
     Ok(())
@@ -74,5 +104,31 @@ fn tweaks_ui(
 fn update_entity_sizes(tweaks: Res<Tweaks>, entities: Query<&mut Transform, With<Mesh2d>>) {
     for mut e in entities {
         e.scale = Vec3::splat(tweaks.entity_scale);
+    }
+}
+
+fn update_cartesian_visibility(
+    tweaks: Res<Tweaks>,
+    mut query: Query<&mut Visibility, With<CartesianMeasure>>,
+) {
+    for mut vis in &mut query {
+        *vis = if tweaks.show_cartesian {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+}
+
+fn update_polar_visibility(
+    tweaks: Res<Tweaks>,
+    mut query: Query<&mut Visibility, With<PolarMeasure>>,
+) {
+    for mut vis in &mut query {
+        *vis = if tweaks.show_polar {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
     }
 }

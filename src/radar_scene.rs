@@ -57,6 +57,7 @@ fn render_cartesian(
             Mesh2d(shape.clone()),
             MeshMaterial2d(material.clone()),
             Transform::from_xyz(p.x, p.y, 0.),
+            Visibility::Visible,
             // data
             p,
         )
@@ -110,6 +111,7 @@ fn render_polar(
             Mesh2d(shape.clone()),
             MeshMaterial2d(material.clone()),
             transform,
+            Visibility::Visible,
             // data
             pos,
         )
