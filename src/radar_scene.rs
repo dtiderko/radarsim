@@ -4,12 +4,6 @@ use rand::prelude::*;
 use crate::common::*;
 use crate::tweaks::*;
 
-#[derive(Component)]
-struct CartesianMeasure;
-
-#[derive(Component)]
-struct PolarMeasure;
-
 pub struct RadarScene;
 impl Plugin for RadarScene {
     fn build(&self, app: &mut App) {
@@ -91,24 +85,31 @@ fn render_polar(
             let dist_y = tar_p.y - sen_p.y;
 
             let pos_x = (dist_x.powi(2) + dist_y.powi(2)).sqrt();
-            let pos_y = (dist_y / dist_x).atan();
 
-            points.push(Position {
-                x: (pos_x + error_x),
-                y: (pos_y + error_y),
-            });
+            let pos_y = dist_y.atan2(dist_x); // arctan(dist_y / dist_x)
+
+            let range = pos_x + error_x;
+            let azimuth = pos_y + error_y;
+
+            let cartesian_x = range * azimuth.cos() + sen_p.x;
+            let cartesian_y = range * azimuth.sin() + sen_p.y;
+
+            points.push((
+                PolarPosition { range, azimuth },
+                Transform::from_xyz(cartesian_x, cartesian_y, 0.0),
+            ));
         }
     }
 
-    commands.spawn_batch(points.into_iter().map(move |p| {
+    commands.spawn_batch(points.into_iter().map(move |(pos, transform)| {
         (
             PolarMeasure,
             // render
             Mesh2d(shape.clone()),
             MeshMaterial2d(material.clone()),
-            Transform::from_xyz(p.x * DISP_SCALE, p.y * DISP_SCALE, 0.),
+            transform,
             // data
-            p,
+            pos,
         )
     }));
 }
