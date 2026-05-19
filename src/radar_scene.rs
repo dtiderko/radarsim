@@ -34,7 +34,7 @@ fn render_cartesian(
     query: Query<(&Position, &Velocity, &Acceleration), With<Aircraft>>,
     tweaks: Res<Tweaks>,
 ) {
-    let shape = meshes.add(Circle::new(2.0));
+    let shape = meshes.add(Circle::new(25.0));
     let color = Color::srgb(0., 1., 1.);
     let material = materials.add(color);
 
@@ -69,7 +69,7 @@ fn render_polar(
     sensors: Query<&Position, With<Sensor>>,
     tweaks: Res<Tweaks>,
 ) {
-    let shape = meshes.add(Circle::new(2.0));
+    let shape = meshes.add(Circle::new(25.0));
     let color = Color::srgb(1., 1., 0.);
     let material = materials.add(color);
 

@@ -16,7 +16,7 @@ fn setup_aircraft(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let shape = meshes.add(Circle::new(5.0));
+    let shape = meshes.add(Circle::new(100.0));
     let color = Color::srgb(1., 0., 0.);
     let pos = Position { x: 0.0, y: 0.0 };
 
@@ -38,7 +38,7 @@ fn setup_sensor(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let shape = meshes.add(Circle::new(5.0));
+    let shape = meshes.add(Circle::new(100.0));
     let color = Color::srgb(0., 1., 0.);
     let pos = Position {
         x: 5000.0,
