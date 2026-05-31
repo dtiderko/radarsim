@@ -1,14 +1,6 @@
-{ pkgs, ... }:
-{
-  packages = with pkgs; [
-    # compilers & linkers & dependecy finding programs
-    clang
-    http-server
-    mold
-    pkg-config
-    wasm-bindgen-cli_0_2_121
-
-    # libraries
+{ pkgs, lib, ... }:
+let
+  libs = with pkgs; [
     alsa-lib
     libc
     libx11
@@ -17,6 +9,21 @@
     vulkan-loader
     wayland
   ];
+in
+{
+  env.LD_LIBRARY_PATH = lib.makeLibraryPath libs;
+
+  packages =
+    with pkgs;
+    [
+      # compilers & linkers & dependecy finding programs
+      clang
+      http-server
+      mold
+      pkg-config
+      wasm-bindgen-cli_0_2_121
+    ]
+    ++ libs;
 
   languages.rust = {
     enable = true;
