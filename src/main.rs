@@ -36,7 +36,7 @@ fn toggle_wireframe(mut wireframe_config: ResMut<Wireframe2dConfig>) {
 }
 
 fn setup_camera_system(mut commands: Commands) {
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2d);
 }
 
 fn advance_sim_time(time: Res<Time>, tweaks: Res<Tweaks>, mut sim_time: ResMut<SimTime>) {

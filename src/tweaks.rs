@@ -56,6 +56,7 @@ impl Plugin for TweaksUi {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn tweaks_ui(
     mut contexts: EguiContexts,
     mut commands: Commands,
