@@ -1,13 +1,14 @@
 use bevy::{
     input::common_conditions::input_just_pressed,
     prelude::*,
-    sprite_render::{Wireframe2dConfig, Wireframe2dPlugin},
+    sprite_render::{Material2dPlugin, Wireframe2dConfig, Wireframe2dPlugin},
 };
 use bevy_egui::prelude::*;
 
-use crate::{common::*, tweaks::Tweaks};
+use crate::{common::*, normal_dist_material::NormalDistMaterial, tweaks::Tweaks};
 
 mod common;
+mod normal_dist_material;
 mod radar_scene;
 mod real_scene;
 mod tweaks;
@@ -16,6 +17,7 @@ fn main() {
     App::new()
         .insert_resource(SimTime(0.))
         .add_plugins(DefaultPlugins)
+        .add_plugins(Material2dPlugin::<NormalDistMaterial>::default())
         .add_plugins(Wireframe2dPlugin::default())
         .add_plugins(EguiPlugin::default())
         .add_plugins(tweaks::TweaksUi)

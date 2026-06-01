@@ -6,6 +6,8 @@ wasm-bindgen --no-typescript --target web \
     --out-name "radarsim" \
     ./target/wasm32-unknown-unknown/wasm-release/radarsim.wasm
 
+cp -r ./assets/ ./out/assets/
+
 cat >./out/index.html <<EOL
 <!doctype html>
 <html lang="en">

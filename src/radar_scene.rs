@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use rand::prelude::*;
 
 use crate::common::*;
+use crate::normal_dist_material::NormalDistMaterial;
 use crate::tweaks::*;
 
 pub struct RadarScene;
@@ -67,13 +68,13 @@ fn render_cartesian(
 fn render_polar(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut materials: ResMut<Assets<NormalDistMaterial>>,
     query: Query<&Position, With<Aircraft>>,
     sensors: Query<&Position, With<Sensor>>,
     tweaks: Res<Tweaks>,
 ) {
-    let color = Color::srgb(1., 1., 0.);
-    let material = materials.add(color);
+    let color = Color::srgb(1., 1., 0.).to_linear();
+    let material = materials.add(NormalDistMaterial { color });
 
     let normrnd = rand_distr::Normal::new(0., 1.).unwrap();
 
