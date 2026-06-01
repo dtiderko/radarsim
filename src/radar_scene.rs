@@ -57,7 +57,7 @@ fn render_cartesian(
             // render
             Mesh2d(shape.clone()),
             MeshMaterial2d(material.clone()),
-            Transform::from_xyz(p.x, p.y, 0.),
+            Transform::from_xyz(p.x, p.y, -1.),
             Visibility::Visible,
             // data
             p,
@@ -102,7 +102,7 @@ fn render_polar(
                 range * tweaks.polar_sig_azimuth.to_radians().tan(),
             ));
 
-            let transform = Transform::from_xyz(cartesian_x, cartesian_y, 0.0)
+            let transform = Transform::from_xyz(cartesian_x, cartesian_y, -1.0)
                 .with_rotation(Quat::from_rotation_z(azimuth));
 
             points.push((transform, Mesh2d(shape), PolarPosition { range, azimuth }));
