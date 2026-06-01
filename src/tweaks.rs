@@ -92,7 +92,7 @@ fn tweaks_ui(
             egui::Slider::new(&mut tweaks.polar_sig_range, 0.0..=5000.0).text("Polar Range σ (m)"),
         );
         ui.add(
-            egui::Slider::new(&mut tweaks.polar_sig_azimuth, 0.0..=360.0)
+            egui::Slider::new(&mut tweaks.polar_sig_azimuth, 0.0..=45.0)
                 .text("Polar Azimuth σ (deg)"),
         );
 
