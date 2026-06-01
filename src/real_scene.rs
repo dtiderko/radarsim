@@ -1,13 +1,14 @@
 use bevy::prelude::*;
 
-use crate::common::*;
+use crate::{common::*, tweaks::Tweaks};
 
 pub struct RealScene;
 impl Plugin for RealScene {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_aircraft)
             .add_systems(Startup, setup_sensor)
-            .add_systems(Update, (move_aircraft, update_render).chain());
+            .add_systems(Update, (move_aircraft, update_render).chain())
+            .add_systems(Update, draw_arrow);
     }
 }
 
@@ -83,4 +84,19 @@ fn update_render(mut query: Query<(&Position, &mut Transform), With<Aircraft>>) 
         render_pos.translation[0] = sim_pos.x;
         render_pos.translation[1] = sim_pos.y;
     }
+}
+
+fn draw_arrow(
+    mut gizmos: Gizmos,
+    aircraft: Single<(&Position, &Velocity), With<Aircraft>>,
+    tweaks: Res<Tweaks>,
+) {
+    gizmos.arrow_2d(
+        Vec2::new(aircraft.0.x, aircraft.0.y),
+        Vec2::new(
+            aircraft.0.x + aircraft.1.x * tweaks.arrow_scale,
+            aircraft.0.y + aircraft.1.y * tweaks.arrow_scale,
+        ),
+        Color::srgb(1., 0., 0.),
+    );
 }
