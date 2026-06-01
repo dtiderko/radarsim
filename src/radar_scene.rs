@@ -72,7 +72,6 @@ fn render_polar(
     sensors: Query<&Position, With<Sensor>>,
     tweaks: Res<Tweaks>,
 ) {
-    let shape = meshes.add(Circle::new(25.0));
     let color = Color::srgb(1., 1., 0.);
     let material = materials.add(color);
 
@@ -97,19 +96,24 @@ fn render_polar(
             let cartesian_x = range * azimuth.cos() + sen_p.x;
             let cartesian_y = range * azimuth.sin() + sen_p.y;
 
-            points.push((
-                PolarPosition { range, azimuth },
-                Transform::from_xyz(cartesian_x, cartesian_y, 0.0),
+            let shape = meshes.add(Ellipse::new(
+                tweaks.polar_sig_range,
+                range * tweaks.polar_sig_azimuth.to_radians().tan(),
             ));
+
+            let transform = Transform::from_xyz(cartesian_x, cartesian_y, 0.0)
+                .with_rotation(Quat::from_rotation_z(azimuth));
+
+            points.push((transform, Mesh2d(shape), PolarPosition { range, azimuth }));
         }
     }
 
-    commands.spawn_batch(points.into_iter().map(move |(pos, transform)| {
+    commands.spawn_batch(points.into_iter().map(move |(transform, mesh, pos)| {
         (
             PolarMeasure,
             // render
-            Mesh2d(shape.clone()),
             MeshMaterial2d(material.clone()),
+            mesh,
             transform,
             Visibility::Visible,
             // data
