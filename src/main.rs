@@ -1,7 +1,6 @@
 use bevy::{
-    input::common_conditions::input_just_pressed,
     prelude::*,
-    sprite_render::{Material2dPlugin, Wireframe2dConfig, Wireframe2dPlugin},
+    sprite_render::{Material2dPlugin, Wireframe2dPlugin},
 };
 use bevy_egui::prelude::*;
 
@@ -24,17 +23,9 @@ fn main() {
         .add_plugins(real_scene::RealScene)
         .add_plugins(radar_scene::RadarScene)
         .add_systems(Startup, setup_camera_system)
-        .add_systems(
-            Update,
-            toggle_wireframe.run_if(input_just_pressed(KeyCode::Space)),
-        )
         .add_systems(Update, advance_sim_time)
         .add_systems(Update, zoom_camera)
         .run();
-}
-
-fn toggle_wireframe(mut wireframe_config: ResMut<Wireframe2dConfig>) {
-    wireframe_config.global = !wireframe_config.global;
 }
 
 fn setup_camera_system(mut commands: Commands) {
