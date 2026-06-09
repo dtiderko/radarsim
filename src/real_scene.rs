@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use nalgebra::vector;
 
 use crate::{common::*, tweaks::Tweaks};
 
@@ -19,7 +20,7 @@ fn setup_aircraft(
 ) {
     let shape = meshes.add(Circle::new(100.0));
     let color = Color::srgb(1., 0., 0.);
-    let pos = Position { x: 0.0, y: 0.0 };
+    let pos = Position(vector![0., 0.]);
 
     commands.spawn((
         Aircraft,
@@ -41,10 +42,7 @@ fn setup_sensor(
 ) {
     let shape = meshes.add(Circle::new(100.0));
     let color = Color::srgb(0., 1., 0.);
-    let pos = Position {
-        x: 5000.0,
-        y: 3000.0,
-    };
+    let pos = Position(vector![5000., 5000.]);
 
     commands.spawn((
         Sensor,
@@ -61,21 +59,27 @@ fn move_aircraft(
     sim_time: Res<SimTime>,
     mut query: Query<(&mut Position, &mut Velocity, &mut Acceleration), With<Aircraft>>,
 ) {
-    const V: f32 = 300.;
-    const Q: f32 = 9.;
+    const V: f32 = 300.; // m/s
+    const Q: f32 = 9.; // m/s^2
 
     let a = V.powi(2) / Q;
     let w = Q / (2. * V);
 
     for (mut pos, mut vel, mut acc) in &mut query {
-        pos.x = a * f32::sin(w * sim_time.0);
-        pos.y = a * f32::sin(2. * w * sim_time.0);
+        pos.0 = vector![
+            a * f32::sin(w * sim_time.0),
+            a * f32::sin(2. * w * sim_time.0),
+        ];
 
-        vel.x = V * (f32::cos(w * sim_time.0) / 2.);
-        vel.y = V * f32::cos(2. * w * sim_time.0);
+        vel.0 = vector![
+            V * (f32::cos(w * sim_time.0) / 2.),
+            V * f32::cos(2. * w * sim_time.0),
+        ];
 
-        acc.x = -Q * (f32::sin(w * sim_time.0) / 4.);
-        acc.y = -Q * f32::sin(2. * w * sim_time.0);
+        acc.0 = vector![
+            -Q * (f32::sin(w * sim_time.0) / 4.),
+            -Q * f32::sin(2. * w * sim_time.0),
+        ];
     }
 }
 

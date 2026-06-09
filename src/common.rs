@@ -1,10 +1,11 @@
 use bevy::prelude::*;
+use nalgebra::Vector2;
 
-#[derive(Resource)]
+#[derive(Resource, Deref, DerefMut)]
 pub struct SimTime(pub f32);
 
-#[derive(Resource)]
-pub struct RadarSweepCounter(pub u64);
+#[derive(Resource, Component, Clone, Copy, Deref, DerefMut)]
+pub struct RadarSweepCounter(pub usize);
 
 #[derive(Component)]
 pub struct CartesianMeasure;
@@ -18,26 +19,19 @@ pub struct Aircraft;
 #[derive(Component, Debug)]
 pub struct Sensor;
 
-#[derive(Component, Debug, Default)]
-pub struct PolarPosition {
-    pub range: f32,
-    pub azimuth: f32,
-}
+#[derive(Component, Debug, Clone)]
+pub struct SensorPos(pub Vector2<f32>);
 
-#[derive(Component, Debug, Default)]
-pub struct Position {
-    pub x: f32,
-    pub y: f32,
-}
+/// x -> range
+/// y -> azimuth in radians
+#[derive(Component, Debug, Default, Deref, DerefMut, Clone)]
+pub struct PolarPosition(pub Vector2<f32>);
 
-#[derive(Component, Debug, Default)]
-pub struct Velocity {
-    pub x: f32,
-    pub y: f32,
-}
+#[derive(Component, Debug, Default, Deref, DerefMut, Clone)]
+pub struct Position(pub Vector2<f32>);
 
-#[derive(Component, Debug, Default)]
-pub struct Acceleration {
-    pub x: f32,
-    pub y: f32,
-}
+#[derive(Component, Debug, Default, Deref, DerefMut, Clone)]
+pub struct Velocity(pub Vector2<f32>);
+
+#[derive(Component, Debug, Default, Deref, DerefMut, Clone)]
+pub struct Acceleration(pub Vector2<f32>);

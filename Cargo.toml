@@ -32,6 +32,7 @@ bevy = { version = "0.18.1", default-features = false, features = [
 ] }
 bevy_egui = "0.39.1"
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
+nalgebra = "0.34.2"
 rand = "0.10.1"
 rand_distr = "0.6.0"
 
