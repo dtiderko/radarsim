@@ -104,8 +104,8 @@ fn render_polar(
                 dist.y.atan2(dist.x),                     // azimuth // arctan(dist_y / dist_x)
             ];
 
-            let polar = true_polar + error;
-            let cartesian = polar.x * vector![polar.y.cos(), polar.y.sin()] + sen_p.0;
+            let polar = PolarPosition(true_polar + error);
+            let cartesian = polar.to_cartesian(sen_p.0);
 
             let shape = meshes.add(Ellipse::new(
                 tweaks.polar_sig_range,
@@ -115,12 +115,7 @@ fn render_polar(
             let transform = Transform::from_xyz(cartesian.x, cartesian.y, -1.0)
                 .with_rotation(Quat::from_rotation_z(polar.y));
 
-            points.push((
-                transform,
-                Mesh2d(shape),
-                PolarPosition(polar),
-                SensorPos(sen_p.0),
-            ));
+            points.push((transform, Mesh2d(shape), polar, SensorPos(sen_p.0)));
         }
     }
 
