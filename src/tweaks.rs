@@ -4,7 +4,7 @@ use bevy::{
 };
 use bevy_egui::prelude::*;
 
-use crate::common::*;
+use crate::{common::*, kalman_scene::KalmanStore};
 
 #[derive(Resource)]
 pub struct Tweaks {
@@ -63,9 +63,11 @@ fn tweaks_ui(
     mut tweaks: ResMut<Tweaks>,
     mut sim_time: ResMut<SimTime>,
     mut radar_sweep_counter: ResMut<RadarSweepCounter>,
+    mut kalman_store: ResMut<KalmanStore>,
     diagnostics: Res<DiagnosticsStore>,
     cartesian_measurements: Query<Entity, With<CartesianMeasure>>,
     polar_measurements: Query<Entity, With<PolarMeasure>>,
+    kalman_points: Query<Entity, With<KalmanPoint>>,
 ) -> Result {
     let fps = diagnostics
         .get(&bevy::diagnostic::FrameTimeDiagnosticsPlugin::FPS)
@@ -101,10 +103,14 @@ fn tweaks_ui(
         if ui.button("Reset simulation").clicked() {
             sim_time.0 = 0.;
             radar_sweep_counter.0 = 0;
+            *kalman_store = KalmanStore::default();
             for e in cartesian_measurements {
                 commands.entity(e).despawn()
             }
             for e in polar_measurements {
+                commands.entity(e).despawn()
+            }
+            for e in kalman_points {
                 commands.entity(e).despawn()
             }
         }

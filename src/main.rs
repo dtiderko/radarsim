@@ -7,6 +7,7 @@ use bevy_egui::prelude::*;
 use crate::{common::*, normal_dist_material::NormalDistMaterial, tweaks::Tweaks};
 
 mod common;
+mod kalman_scene;
 mod normal_dist_material;
 mod radar_scene;
 mod real_scene;
@@ -22,6 +23,7 @@ fn main() {
         .add_plugins(tweaks::TweaksUi)
         .add_plugins(real_scene::RealScene)
         .add_plugins(radar_scene::RadarScene)
+        .add_plugins(kalman_scene::KalmanScene)
         .add_systems(Startup, setup_camera_system)
         .add_systems(Update, advance_sim_time)
         .add_systems(Update, zoom_camera)

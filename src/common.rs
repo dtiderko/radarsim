@@ -13,6 +13,9 @@ pub struct CartesianMeasure;
 #[derive(Component)]
 pub struct PolarMeasure;
 
+#[derive(Component)]
+pub struct KalmanPoint;
+
 #[derive(Component, Debug)]
 pub struct Aircraft;
 
