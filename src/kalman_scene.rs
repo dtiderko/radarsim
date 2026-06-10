@@ -48,6 +48,40 @@ fn r_k(phi_k: f32, r_k: f32, err_phi: f32, err_r: f32) -> Matrix2<f32> {
     d_pk * r_polar * d_pk.transpose()
 }
 
+fn render_gaussian(
+    commands: &mut Commands,
+    materials: &mut Assets<NormalDistMaterial>,
+    meshes: &mut Assets<Mesh>,
+    entity_type: impl Component,
+    mean: Vector4<f32>,
+    covariance: Matrix2<f32>,
+) {
+    let eig = covariance.symmetric_eigen();
+
+    // calc error covariance half-width and half-height
+    let half_width = eig.eigenvalues[0].sqrt();
+    let half_height = eig.eigenvalues[1].sqrt();
+    let shape = Ellipse::new(half_width, half_height);
+
+    // points should be pink gaussians
+    let color = Color::srgb(1., 0., 0.5).to_linear();
+    let material = NormalDistMaterial { color };
+
+    // calc rotation of our first guess
+    let lambda1 = eig.eigenvectors.column(0);
+    let theta = f32::atan2(lambda1.y, lambda1.x);
+    let rotation = Quat::from_rotation_z(theta);
+    // and combine it with the position of the guessed point
+    let transform = Transform::from_xyz(mean.x, mean.y, 0.).with_rotation(rotation);
+
+    commands.spawn((
+        entity_type,
+        MeshMaterial2d(materials.add(material)),
+        Mesh2d(meshes.add(shape)),
+        transform,
+    ));
+}
+
 fn update_kalman_store(
     tweaks: Res<Tweaks>,
     mut kalman_store: ResMut<KalmanStore>,
@@ -121,33 +155,7 @@ fn initiate(
         0., 0., 0., tweaks.kalman_vmax.powi(2);
     ];
 
-    // to render the ellipse
-    let (material, mesh, transform) = {
-        let eig = r0.symmetric_eigen();
-
-        // calc error covariance half-width and half-height
-        let half_width = eig.eigenvalues[0].sqrt();
-        let half_height = eig.eigenvalues[1].sqrt();
-        let shape = Ellipse::new(half_width, half_height);
-
-        // points should be pink gaussians
-        let color = Color::srgb(1., 0., 0.5).to_linear();
-        let material = NormalDistMaterial { color };
-
-        // calc rotation of our first guess
-        let lambda1 = eig.eigenvectors.column(0);
-        let theta = f32::atan2(lambda1.y, lambda1.x);
-        let rotation = Quat::from_rotation_z(theta);
-        // and combine it with the position of the guessed point
-        let transform = Transform::from_xyz(x00.x, x00.y, 0.).with_rotation(rotation);
-
-        (
-            MeshMaterial2d(materials.add(material)),
-            Mesh2d(meshes.add(shape)),
-            transform,
-        )
-    };
-    commands.spawn((KalmanPoint, material, mesh, transform));
+    render_gaussian(commands, materials, meshes, KalmanPoint, x00, r0);
 
     kalman_store.inferred.push(InferredPoint {
         mean: x00,
