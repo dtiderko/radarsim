@@ -1,10 +1,12 @@
 #! /usr/bin/env bash
 
 cargo build --profile=wasm-release --target wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.123
 wasm-bindgen --no-typescript --target web \
     --out-dir ./out/ \
     --out-name "radarsim" \
     ./target/wasm32-unknown-unknown/wasm-release/radarsim.wasm
+wasm-opt -Oz -o ./out/radarsim_bg.wasm ./out/radarsim_bg.wasm
 
 cp -r ./assets/ ./out/assets/
 

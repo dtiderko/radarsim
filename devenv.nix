@@ -21,7 +21,7 @@ in
       http-server
       mold
       pkg-config
-      wasm-bindgen-cli_0_2_121
+      binaryen
     ]
     ++ libs;
 
