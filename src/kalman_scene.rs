@@ -94,9 +94,6 @@ fn initiate(
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<NormalDistMaterial>,
 ) {
-    // maximum object speed
-    const VMAX: f32 = 1000.; // TODO move into tweaks
-
     // our first measurement
     let (z0_polar, sen_p) = &kalman_store.zs[0];
     let z0 = z0_polar.to_cartesian(sen_p.0);
@@ -120,8 +117,8 @@ fn initiate(
     let p00 = matrix![
         r0[(0,0)], r0[(0,1)], 0., 0.;
         r0[(1,0)], r0[(1,1)], 0., 0.;
-        0., 0., VMAX.powi(2), 0.;
-        0., 0., 0., VMAX.powi(2);
+        0., 0., tweaks.kalman_vmax.powi(2), 0.;
+        0., 0., 0., tweaks.kalman_vmax.powi(2);
     ];
 
     // to render the ellipse

@@ -19,6 +19,10 @@ pub struct Tweaks {
 
     pub show_cartesian: bool,
     pub show_polar: bool,
+
+    /// Maximum object speed
+    /// max val is ~334 m/s (i think)
+    pub kalman_vmax: f32,
 }
 
 impl Default for Tweaks {
@@ -35,6 +39,8 @@ impl Default for Tweaks {
 
             show_cartesian: true,
             show_polar: true,
+
+            kalman_vmax: 334.,
         }
     }
 }
@@ -101,6 +107,12 @@ fn tweaks_ui(
                 .text("Polar Azimuth σ (deg)"),
         );
 
+        ui.separator();
+        ui.heading("Kalman filter");
+        ui.add(
+            egui::Slider::new(&mut tweaks.kalman_vmax, 100.0..=600.)
+                .text("Max. Object Speed (m/s)"),
+        );
         ui.separator();
         ui.heading("Resets");
         if ui.button("Reset simulation").clicked() {
