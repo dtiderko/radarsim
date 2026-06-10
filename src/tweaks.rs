@@ -8,6 +8,7 @@ use crate::{common::*, kalman_scene::KalmanStore};
 
 #[derive(Resource)]
 pub struct Tweaks {
+    pub auto_camera: bool,
     pub entity_scale: f32,
     pub arrow_scale: f32,
     pub time_scale: f32,
@@ -23,6 +24,7 @@ pub struct Tweaks {
 impl Default for Tweaks {
     fn default() -> Self {
         Self {
+            auto_camera: true,
             entity_scale: 1.0,
             arrow_scale: 1.0,
             time_scale: 1.0,
@@ -82,6 +84,7 @@ fn tweaks_ui(
 
         ui.separator();
         ui.heading("World");
+        ui.toggle_value(&mut tweaks.auto_camera, "Auto Camera");
         ui.add(egui::Slider::new(&mut tweaks.entity_scale, 0.1..=4.0).text("Entity Scale"));
         ui.add(egui::Slider::new(&mut tweaks.arrow_scale, 0.1..=16.0).text("Arrow Scale"));
         ui.add(egui::Slider::new(&mut tweaks.time_scale, 0.0..=100.0).text("Time Scale"));
