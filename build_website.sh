@@ -1,41 +1,10 @@
 #! /usr/bin/env bash
 
-cargo build --profile=wasm-release --target wasm32-unknown-unknown
-wasm-bindgen --no-typescript --target web \
-    --out-dir ./out/ \
-    --out-name "radarsim" \
-    ./target/wasm32-unknown-unknown/wasm-release/radarsim.wasm
+trunk build --cargo-profile=wasm-release
+cp -r ./assets/ ./dist/assets/
 
-cp -r ./assets/ ./out/assets/
+cd ./dist || exit
+for file in *.wasm; do
+  wasm-opt -Oz -o "$file" "$file"
+done
 
-cat >./out/index.html <<EOL
-<!doctype html>
-<html lang="en">
-
-<head>
-  <meta charset="utf-8">
-  <title>RadarSim</title>
-  <style>
-    html,
-    body,
-    canvas {
-      height: 100% !important;
-      width: 100% !important;
-    }
-  </style>
-</head>
-
-<body style="margin: 0px;">
-  <script type="module">
-    import init from './radarsim.js'
-
-    init().catch((error) => {
-      if (!error.message.startsWith("Using exceptions for control flow, don't mind me. This isn't actually an error!")) {
-        throw error;
-      }
-    });
-  </script>
-</body>
-
-</html>
-EOL

@@ -1,7 +1,7 @@
 /.direnv
 /target
 /result
-/out
+/dist
 
 # Devenv
 .devenv*
