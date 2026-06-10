@@ -23,6 +23,8 @@ pub struct Tweaks {
     /// Maximum object speed
     /// max val is ~334 m/s (i think)
     pub kalman_vmax: f32,
+    /// in m/s^2
+    pub kalman_acc_noise: f32,
 }
 
 impl Default for Tweaks {
@@ -41,6 +43,7 @@ impl Default for Tweaks {
             show_polar: true,
 
             kalman_vmax: 334.,
+            kalman_acc_noise: 2.,
         }
     }
 }
@@ -113,6 +116,11 @@ fn tweaks_ui(
             egui::Slider::new(&mut tweaks.kalman_vmax, 100.0..=600.)
                 .text("Max. Object Speed (m/s)"),
         );
+        ui.add(
+            egui::Slider::new(&mut tweaks.kalman_acc_noise, 0.0..=20.)
+                .text("Acceleration Noise (m/s^2)"),
+        );
+
         ui.separator();
         ui.heading("Resets");
         if ui.button("Reset simulation").clicked() {

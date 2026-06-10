@@ -19,13 +19,15 @@ pub struct KalmanStore {
     zs: Vec<(PolarPosition, SensorPos)>,
     /// inferred positions of entities
     inferred: Vec<InferredPoint>,
+    /// Index of the next zs
+    next_zs: usize,
 }
 
 pub struct KalmanScene;
 impl Plugin for KalmanScene {
     fn build(&self, app: &mut App) {
         app.init_resource::<KalmanStore>()
-            .add_systems(Update, update_kalman_store);
+            .add_systems(Update, (update_kalman_store, prediction).chain());
     }
 }
 
@@ -161,4 +163,69 @@ fn initiate(
         mean: x00,
         covariance: p00,
     });
+    kalman_store.next_zs += 1;
+}
+
+fn prediction(
+    tweaks: Res<Tweaks>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<NormalDistMaterial>>,
+    mut kalman_store: ResMut<KalmanStore>,
+) {
+    // only run predictian if a new measuement is available
+    if kalman_store.zs.len() <= kalman_store.next_zs {
+        return;
+    }
+
+    println!("kalman pred");
+    // we call the Kalman filter every Radarsweep == every 5s
+    const DELTA_TIME: f32 = 5.0;
+
+    // get our last guess
+    let last_guess = kalman_store.inferred.last();
+    let (x_kp_kp, p_kp_kp) = match last_guess {
+        Some(x) => (x.mean, x.covariance),
+        None => return,
+    };
+
+    // transition matrix
+    // according to vl 4, p.19
+    let f_k_kp = matrix![
+        1., 0., DELTA_TIME, 0.;
+        0., 1., 0., DELTA_TIME;
+        0., 0., 1., 0.;
+        0., 0., 0., 1.;
+    ];
+
+    // process noise covariance
+    // according to vl 4, p.19
+    let d_k_kp = tweaks.kalman_acc_noise.powi(2)
+        * matrix![
+            0.25 * DELTA_TIME.powi(4), 0., 0.5 * DELTA_TIME.powi(3), 0.;
+            0., 0.25 * DELTA_TIME.powi(4), 0., 0.5 * DELTA_TIME.powi(3);
+            0.5 * DELTA_TIME.powi(3), 0., DELTA_TIME.powi(2), 0.;
+            0., 0.5 * DELTA_TIME.powi(3), 0., DELTA_TIME.powi(2);
+        ];
+
+    // calc current guess
+    // according to vl 4, p. 18 and book p. 61, section 3.2.1
+    let x_k_kp = f_k_kp * x_kp_kp;
+    let p_k_kp = f_k_kp * p_kp_kp * f_k_kp.transpose() + d_k_kp;
+
+    render_gaussian(
+        &mut commands,
+        &mut materials,
+        &mut meshes,
+        KalmanPoint,
+        x_k_kp,
+        p_k_kp.fixed_view::<2, 2>(0, 0).into(),
+    );
+
+    // add our new guess as point
+    kalman_store.inferred.push(InferredPoint {
+        mean: x_k_kp,
+        covariance: p_k_kp,
+    });
+    kalman_store.next_zs += 1;
 }
