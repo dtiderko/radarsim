@@ -6,6 +6,9 @@ use crate::common::*;
 use crate::normal_dist_material::NormalDistMaterial;
 use crate::tweaks::*;
 
+#[derive(Event)]
+struct KalmanPredEvent(pub Id);
+
 struct InferredPoint {
     /// inferred point with (pos.x, pos.y, vel.x, vel.y)^T
     mean: Vector4<f32>,
@@ -27,6 +30,7 @@ pub struct KalmanScene;
 impl Plugin for KalmanScene {
     fn build(&self, app: &mut App) {
         app.init_resource::<KalmanStore>()
+            .add_observer(filtering)
             .add_systems(Update, (update_kalman_store, prediction).chain());
     }
 }
@@ -35,7 +39,7 @@ impl Plugin for KalmanScene {
 /// Based on Book p.37, section 2.3.1
 ///
 /// err_phi is expected to be given in radians
-fn r_k(phi_k: f32, r_k: f32, err_phi: f32, err_r: f32) -> Matrix2<f32> {
+fn calc_r_k(phi_k: f32, r_k: f32, err_phi: f32, err_r: f32) -> Matrix2<f32> {
     // rotation matrix
     let d_pk = matrix![
         phi_k.cos(), -phi_k.sin();
@@ -57,6 +61,7 @@ fn render_gaussian(
     entity_type: impl Component,
     mean: Vector4<f32>,
     covariance: Matrix2<f32>,
+    id: Id,
 ) {
     let eig = covariance.symmetric_eigen();
 
@@ -81,6 +86,7 @@ fn render_gaussian(
         MeshMaterial2d(materials.add(material)),
         Mesh2d(meshes.add(shape)),
         transform,
+        id,
     ));
 }
 
@@ -143,7 +149,7 @@ fn initiate(
     ];
 
     // error covariance matrix R_{0}
-    let r0 = r_k(
+    let r0 = calc_r_k(
         z0_polar.y,
         z0_polar.x,
         tweaks.polar_sig_azimuth.to_radians(),
@@ -157,7 +163,15 @@ fn initiate(
         0., 0., 0., tweaks.kalman_vmax.powi(2);
     ];
 
-    render_gaussian(commands, materials, meshes, KalmanPoint, x00, r0);
+    render_gaussian(
+        commands,
+        materials,
+        meshes,
+        KalmanPoint,
+        x00,
+        r0,
+        Id(kalman_store.next_zs),
+    );
 
     kalman_store.inferred.push(InferredPoint {
         mean: x00,
@@ -213,6 +227,7 @@ fn prediction(
     let x_k_kp = f_k_kp * x_kp_kp;
     let p_k_kp = f_k_kp * p_kp_kp * f_k_kp.transpose() + d_k_kp;
 
+    let id = kalman_store.next_zs;
     render_gaussian(
         &mut commands,
         &mut materials,
@@ -220,6 +235,7 @@ fn prediction(
         KalmanPoint,
         x_k_kp,
         p_k_kp.fixed_view::<2, 2>(0, 0).into(),
+        Id(id),
     );
 
     // add our new guess as point
@@ -228,4 +244,81 @@ fn prediction(
         covariance: p_k_kp,
     });
     kalman_store.next_zs += 1;
+
+    // notify our filtering step about this new point
+    commands.trigger(KalmanPredEvent(Id(id)));
+}
+
+fn filtering(
+    event: On<KalmanPredEvent>,
+    tweaks: Res<Tweaks>,
+    mut commands: Commands,
+    mut kalman_store: ResMut<KalmanStore>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<NormalDistMaterial>>,
+    kalman_points: Query<(Entity, &Id), With<KalmanPoint>>,
+) {
+    println!("kalman filter");
+
+    let ev_id = event.0;
+
+    // predicted point
+    let InferredPoint {
+        mean: x_k_kp,
+        covariance: p_k_kp,
+    } = kalman_store.inferred[*ev_id];
+    // sensor measurement
+    let z = &kalman_store.zs[*ev_id];
+    let z_k = z.0.to_cartesian(z.1.0);
+
+    // measurement error matrix
+    let r_k = calc_r_k(
+        z.0.y,
+        z.0.x,
+        tweaks.polar_sig_azimuth.to_radians(),
+        tweaks.polar_sig_range,
+    );
+
+    let h = matrix![
+        1., 0., 0., 0.;
+        0., 1., 0., 0.;
+    ];
+
+    // innovation covariance
+    let s_k_kp = h * p_k_kp * h.transpose() + r_k;
+    // kalman gain matrix
+    let w_k_kp = p_k_kp * h.transpose() * s_k_kp.try_inverse().unwrap();
+
+    // innovation
+    let v = z_k.0 - h * x_k_kp;
+
+    let x_k_k = x_k_kp + w_k_kp * v;
+    let p_k_k = p_k_kp - w_k_kp * s_k_kp * w_k_kp.transpose();
+
+    // update inferred data in store
+    *kalman_store.inferred.last_mut().unwrap() = InferredPoint {
+        mean: x_k_k,
+        covariance: p_k_k,
+    };
+
+    // update visualisation
+    let last_points: Vec<Entity> = kalman_points
+        .iter()
+        .filter(|(_, id)| **id == ev_id)
+        .map(|(e, _)| e)
+        .collect();
+    assert!(
+        last_points.len() == 1,
+        "expected one kalman point per computed time step"
+    );
+    commands.entity(last_points[0]).despawn();
+    render_gaussian(
+        &mut commands,
+        &mut materials,
+        &mut meshes,
+        KalmanPoint,
+        x_k_k,
+        p_k_k.fixed_view::<2, 2>(0, 0).into(),
+        ev_id,
+    );
 }

@@ -22,6 +22,9 @@ pub struct Aircraft;
 #[derive(Component, Debug)]
 pub struct Sensor;
 
+#[derive(Clone, Component, Copy, Debug, Deref, DerefMut, PartialEq)]
+pub struct Id(pub usize);
+
 #[derive(Component, Debug, Deref, DerefMut, Clone)]
 pub struct SensorPos(pub Vector2<f32>);
 
