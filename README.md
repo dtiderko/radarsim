@@ -2,8 +2,8 @@
 
 This is an university project.
 
-University: Rheinische Friedrich-Wilhelms-Universität Bonn
-Module: BA-INF 137 - Einführung in die Sensordatenfusion
+University: Rheinische Friedrich-Wilhelms-Universität Bonn \
+Module: BA-INF 137 - Einführung in die Sensordatenfusion \
 Semester: SS26
 
 ## Requirements for this project
