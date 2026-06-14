@@ -193,8 +193,6 @@ fn prediction(
     }
 
     println!("kalman pred");
-    // we call the Kalman filter every Radarsweep == every 5s
-    const DELTA_TIME: f32 = 5.0;
 
     // get our last guess
     let last_guess = kalman_store.inferred.last();
@@ -206,8 +204,8 @@ fn prediction(
     // transition matrix
     // according to vl 4, p.19
     let f_k_kp = matrix![
-        1., 0., DELTA_TIME, 0.;
-        0., 1., 0., DELTA_TIME;
+        1., 0., RADAR_SWEEP_INTERVAL, 0.;
+        0., 1., 0., RADAR_SWEEP_INTERVAL;
         0., 0., 1., 0.;
         0., 0., 0., 1.;
     ];
@@ -216,10 +214,10 @@ fn prediction(
     // according to vl 4, p.19
     let d_k_kp = tweaks.kalman_acc_noise.powi(2)
         * matrix![
-            0.25 * DELTA_TIME.powi(4), 0., 0.5 * DELTA_TIME.powi(3), 0.;
-            0., 0.25 * DELTA_TIME.powi(4), 0., 0.5 * DELTA_TIME.powi(3);
-            0.5 * DELTA_TIME.powi(3), 0., DELTA_TIME.powi(2), 0.;
-            0., 0.5 * DELTA_TIME.powi(3), 0., DELTA_TIME.powi(2);
+            0.25 * RADAR_SWEEP_INTERVAL.powi(4), 0., 0.5 * RADAR_SWEEP_INTERVAL.powi(3), 0.;
+            0., 0.25 * RADAR_SWEEP_INTERVAL.powi(4), 0., 0.5 * RADAR_SWEEP_INTERVAL.powi(3);
+            0.5 * RADAR_SWEEP_INTERVAL.powi(3), 0., RADAR_SWEEP_INTERVAL.powi(2), 0.;
+            0., 0.5 * RADAR_SWEEP_INTERVAL.powi(3), 0., RADAR_SWEEP_INTERVAL.powi(2);
         ];
 
     // calc current guess

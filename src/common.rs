@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use nalgebra::{Vector2, vector};
 
+pub const RADAR_SWEEP_INTERVAL: f32 = 5.0;
+
 #[derive(Resource, Deref, DerefMut)]
 pub struct SimTime(pub f32);
 

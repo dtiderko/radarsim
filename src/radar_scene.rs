@@ -22,7 +22,7 @@ fn update_radar_sweep_counter(
     sim_time: Res<SimTime>,
     mut radar_sweep_counter: ResMut<RadarSweepCounter>,
 ) {
-    let cur_sweep = (sim_time.0 / 5.).floor() as usize;
+    let cur_sweep = (sim_time.0 / RADAR_SWEEP_INTERVAL).floor() as usize;
 
     if cur_sweep > radar_sweep_counter.0 {
         radar_sweep_counter.0 = cur_sweep;
