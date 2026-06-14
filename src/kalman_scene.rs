@@ -7,31 +7,78 @@ use crate::normal_dist_material::NormalDistMaterial;
 use crate::tweaks::*;
 
 #[derive(Event)]
+struct NewMeasurementEvent(pub TimeStep);
+
+#[derive(Event)]
 struct KalmanPredEvent(pub TimeStep);
 
-struct InferredPoint {
+#[derive(Clone, Debug)]
+pub struct Gaussian {
     /// inferred point with (pos.x, pos.y, vel.x, vel.y)^T
     mean: Vector4<f32>,
     /// error of the inferred point
     covariance: Matrix4<f32>,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct KalmanStore {
     /// actual measurements in Cartesian coordinates
     zs: Vec<(PolarPosition, SensorPos)>,
-    /// inferred positions of entities
-    inferred: Vec<InferredPoint>,
-    /// Index of the next zs
-    next_zs: usize,
+
+    /// Matrix with:
+    /// - i as rows (the timestep this data was meant for)
+    /// - given as colmuns (timestep of the sensor data it is based on)
+    data: Vec<Vec<Option<Gaussian>>>,
+}
+impl Default for KalmanStore {
+    fn default() -> Self {
+        Self {
+            zs: vec![],
+            data: vec![vec![]],
+        }
+    }
+}
+impl KalmanStore {
+    /// Get the Gaussian g_{i|given} as seen in the book
+    pub fn get(&self, i: usize, given: usize) -> Option<&Gaussian> {
+        let givens = self.data.get(i);
+        let ret = givens.and_then(|x| x.get(given));
+        ret.and_then(|x| x.into())
+    }
+
+    /// Set the Gaussian at g_{i|given} as seen in the book
+    pub fn set(&mut self, i: usize, given: usize, gaussian: Gaussian) {
+        // fill in missing rows
+        let num_cols = self.data.first().map(|x| x.len()).unwrap_or(0);
+        if i >= self.data.len() {
+            let missing_rows = 1 + i - self.data.len();
+            let filler_row: Vec<Option<Gaussian>> = (0..num_cols).map(|_| None).collect();
+
+            let rows = (0..missing_rows).map(|_| filler_row.clone());
+            self.data.extend(rows);
+        }
+
+        // fill in missing cols
+        if given >= num_cols {
+            let missing_cols = 1 + given - num_cols;
+            for r in &mut self.data {
+                let cols = (0..missing_cols).map(|_| None);
+                r.extend(cols);
+            }
+        }
+
+        // set the data
+        self.data[i][given] = Some(gaussian);
+    }
 }
 
 pub struct KalmanScene;
 impl Plugin for KalmanScene {
     fn build(&self, app: &mut App) {
         app.init_resource::<KalmanStore>()
-            .add_observer(filtering)
-            .add_systems(Update, (update_kalman_store, prediction).chain());
+            .add_systems(Update, update_kalman_store)
+            .add_observer(prediction)
+            .add_observer(filtering);
     }
 }
 
@@ -114,18 +161,19 @@ fn update_kalman_store(
     if let Some((pos, sen_p, k)) = latest_measurements.first() {
         assert!(k.0 == kalman_store.zs.len()); // truely sorted
         kalman_store.zs.push(((*pos).clone(), (*sen_p).clone()));
-    }
 
-    // if we need to initiate
-    // runs only for the first point
-    if kalman_store.inferred.is_empty() && kalman_store.zs.len() == 1 {
-        initiate(
-            &tweaks,
-            &mut commands,
-            &mut kalman_store,
-            &mut meshes,
-            &mut materials,
-        );
+        // if we need to initiate
+        if kalman_store.get(0, 0).is_none() {
+            initiate(
+                &tweaks,
+                &mut commands,
+                &mut kalman_store,
+                &mut meshes,
+                &mut materials,
+            );
+        } else {
+            commands.trigger(NewMeasurementEvent(TimeStep(k.0)));
+        }
     }
 }
 
@@ -173,32 +221,35 @@ fn initiate(
         TimeStep(0),
     );
 
-    kalman_store.inferred.push(InferredPoint {
-        mean: x00,
-        covariance: p00,
-    });
-    kalman_store.next_zs += 1;
+    kalman_store.set(
+        0,
+        0,
+        Gaussian {
+            mean: x00,
+            covariance: p00,
+        },
+    );
 }
 
 fn prediction(
+    event: On<NewMeasurementEvent>,
     tweaks: Res<Tweaks>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<NormalDistMaterial>>,
     mut kalman_store: ResMut<KalmanStore>,
 ) {
-    // only run predictian if a new measuement is available
-    if kalman_store.zs.len() <= kalman_store.next_zs {
-        return;
-    }
-
     println!("kalman pred");
 
+    let k = event.0;
+
     // get our last guess
-    let last_guess = kalman_store.inferred.last();
-    let (x_kp_kp, p_kp_kp) = match last_guess {
+    let (x_kp_kp, p_kp_kp) = match kalman_store.get(*k - 1, *k - 1) {
         Some(x) => (x.mean, x.covariance),
-        None => return,
+        None => {
+            warn!("kalman predictions are not running in the correct order!");
+            return;
+        }
     };
 
     // transition matrix
@@ -225,7 +276,6 @@ fn prediction(
     let x_k_kp = f_k_kp * x_kp_kp;
     let p_k_kp = f_k_kp * p_kp_kp * f_k_kp.transpose() + d_k_kp;
 
-    let id = kalman_store.next_zs;
     render_gaussian(
         &mut commands,
         &mut materials,
@@ -233,18 +283,21 @@ fn prediction(
         KalmanPoint,
         x_k_kp,
         p_k_kp.fixed_view::<2, 2>(0, 0).into(),
-        TimeStep(id),
+        event.0,
     );
 
     // add our new guess as point
-    kalman_store.inferred.push(InferredPoint {
-        mean: x_k_kp,
-        covariance: p_k_kp,
-    });
-    kalman_store.next_zs += 1;
+    kalman_store.set(
+        *k,
+        *k - 1,
+        Gaussian {
+            mean: x_k_kp,
+            covariance: p_k_kp,
+        },
+    );
 
     // notify our filtering step about this new point
-    commands.trigger(KalmanPredEvent(TimeStep(id)));
+    commands.trigger(KalmanPredEvent(k));
 }
 
 fn filtering(
@@ -258,15 +311,18 @@ fn filtering(
 ) {
     println!("kalman filter");
 
-    let ev_id = event.0;
+    let k = event.0;
 
     // predicted point
-    let InferredPoint {
-        mean: x_k_kp,
-        covariance: p_k_kp,
-    } = kalman_store.inferred[*ev_id];
+    let (x_k_kp, p_k_kp) = match kalman_store.get(*k, *k - 1) {
+        Some(x) => (x.mean, x.covariance),
+        None => {
+            warn!("kalman filterings are not running in the correct order!");
+            return;
+        }
+    };
     // sensor measurement
-    let z = &kalman_store.zs[*ev_id];
+    let z = &kalman_store.zs[*k];
     let z_k = z.0.to_cartesian(z.1.0);
 
     // measurement error matrix
@@ -294,15 +350,19 @@ fn filtering(
     let p_k_k = p_k_kp - w_k_kp * s_k_kp * w_k_kp.transpose();
 
     // update inferred data in store
-    *kalman_store.inferred.last_mut().unwrap() = InferredPoint {
-        mean: x_k_k,
-        covariance: p_k_k,
-    };
+    kalman_store.set(
+        *k,
+        *k,
+        Gaussian {
+            mean: x_k_k,
+            covariance: p_k_k,
+        },
+    );
 
     // update visualisation
     let last_points: Vec<Entity> = kalman_points
         .iter()
-        .filter(|(_, id)| **id == ev_id)
+        .filter(|(_, id)| **id == k)
         .map(|(e, _)| e)
         .collect();
     assert!(
@@ -317,6 +377,6 @@ fn filtering(
         KalmanPoint,
         x_k_k,
         p_k_k.fixed_view::<2, 2>(0, 0).into(),
-        ev_id,
+        event.0,
     );
 }
