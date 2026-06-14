@@ -59,7 +59,7 @@ fn render_cartesian(
         points.push(Position(p.0 + noise));
     }
 
-    let k = RadarSweepCounter(radar_sweep_counter.0);
+    let k = TimeStep(radar_sweep_counter.0);
     commands.spawn_batch(points.into_iter().map(move |p| {
         (
             CartesianMeasure,
@@ -119,7 +119,7 @@ fn render_polar(
         }
     }
 
-    let k = RadarSweepCounter(radar_sweep_counter.0);
+    let k = TimeStep(radar_sweep_counter.0);
     commands.spawn_batch(
         points
             .into_iter()

@@ -7,7 +7,7 @@ use crate::normal_dist_material::NormalDistMaterial;
 use crate::tweaks::*;
 
 #[derive(Event)]
-struct KalmanPredEvent(pub Id);
+struct KalmanPredEvent(pub TimeStep);
 
 struct InferredPoint {
     /// inferred point with (pos.x, pos.y, vel.x, vel.y)^T
@@ -61,7 +61,7 @@ fn render_gaussian(
     entity_type: impl Component,
     mean: Vector4<f32>,
     covariance: Matrix2<f32>,
-    id: Id,
+    id: TimeStep,
 ) {
     let eig = covariance.symmetric_eigen();
 
@@ -93,16 +93,16 @@ fn render_gaussian(
 fn update_kalman_store(
     tweaks: Res<Tweaks>,
     mut kalman_store: ResMut<KalmanStore>,
-    measurements: Query<(&PolarPosition, &SensorPos, &RadarSweepCounter), With<PolarMeasure>>,
+    measurements: Query<(&PolarPosition, &SensorPos, &TimeStep), With<PolarMeasure>>,
 
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<NormalDistMaterial>>,
 ) {
     let latest_k = kalman_store.zs.len();
-    let latest_measurements: Vec<(&PolarPosition, &SensorPos, &RadarSweepCounter)> = measurements
+    let latest_measurements: Vec<(&PolarPosition, &SensorPos, &TimeStep)> = measurements
         .iter()
-        .sort_by_key::<&RadarSweepCounter, _>(|x| x.0)
+        .sort_by_key::<&TimeStep, _>(|x| x.0)
         .filter(|x| x.2.0 == latest_k)
         .collect();
     assert!(
@@ -170,7 +170,7 @@ fn initiate(
         KalmanPoint,
         x00,
         r0,
-        Id(kalman_store.next_zs),
+        TimeStep(0),
     );
 
     kalman_store.inferred.push(InferredPoint {
@@ -233,7 +233,7 @@ fn prediction(
         KalmanPoint,
         x_k_kp,
         p_k_kp.fixed_view::<2, 2>(0, 0).into(),
-        Id(id),
+        TimeStep(id),
     );
 
     // add our new guess as point
@@ -244,7 +244,7 @@ fn prediction(
     kalman_store.next_zs += 1;
 
     // notify our filtering step about this new point
-    commands.trigger(KalmanPredEvent(Id(id)));
+    commands.trigger(KalmanPredEvent(TimeStep(id)));
 }
 
 fn filtering(
@@ -254,7 +254,7 @@ fn filtering(
     mut kalman_store: ResMut<KalmanStore>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<NormalDistMaterial>>,
-    kalman_points: Query<(Entity, &Id), With<KalmanPoint>>,
+    kalman_points: Query<(Entity, &TimeStep), With<KalmanPoint>>,
 ) {
     println!("kalman filter");
 
