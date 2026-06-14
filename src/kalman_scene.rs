@@ -6,6 +6,16 @@ use crate::common::*;
 use crate::normal_dist_material::NormalDistMaterial;
 use crate::tweaks::*;
 
+pub struct KalmanScene;
+impl Plugin for KalmanScene {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<KalmanStore>()
+            .add_systems(Update, update_kalman_store)
+            .add_observer(prediction)
+            .add_observer(filtering);
+    }
+}
+
 #[derive(Event)]
 struct NewMeasurementEvent(pub TimeStep);
 
@@ -69,16 +79,6 @@ impl KalmanStore {
 
         // set the data
         self.data[i][given] = Some(gaussian);
-    }
-}
-
-pub struct KalmanScene;
-impl Plugin for KalmanScene {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<KalmanStore>()
-            .add_systems(Update, update_kalman_store)
-            .add_observer(prediction)
-            .add_observer(filtering);
     }
 }
 
