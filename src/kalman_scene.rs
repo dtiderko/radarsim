@@ -16,7 +16,8 @@ impl Plugin for KalmanScene {
                 render_kalman_points.run_if(resource_changed::<KalmanStore>),
             )
             .add_observer(prediction)
-            .add_observer(filtering);
+            .add_observer(filtering)
+            .add_observer(retrodiction);
     }
 }
 
@@ -25,6 +26,9 @@ struct NewMeasurementEvent(pub TimeStep);
 
 #[derive(Event)]
 struct KalmanPredEvent(pub TimeStep);
+
+#[derive(Event)]
+struct KalmanFilterEvent(pub TimeStep);
 
 #[derive(Component)]
 struct BasedOn(pub TimeStep);
@@ -324,8 +328,9 @@ fn prediction(
 
 fn filtering(
     event: On<KalmanPredEvent>,
-    tweaks: Res<Tweaks>,
+    mut commands: Commands,
     mut kalman_store: ResMut<KalmanStore>,
+    tweaks: Res<Tweaks>,
 ) {
     println!("kalman filter");
 
@@ -377,4 +382,62 @@ fn filtering(
         },
     );
 
+    // trigger retrodiction
+    commands.trigger(KalmanFilterEvent(k));
+}
+
+fn retrodiction(
+    event: On<KalmanFilterEvent>,
+    mut kalman_store: ResMut<KalmanStore>,
+    kalman_points: Query<&TimeStep, With<KalmanPoint>>,
+) {
+    println!("kalman retro");
+
+    let k = event.0;
+
+    // sort in descending order
+    let sorted = kalman_points
+        .iter()
+        .sort_by_key::<&TimeStep, _>(|x| x.0)
+        .rev();
+
+    for l in sorted {
+        let l = l.0;
+
+        // current point
+        let Gaussian {
+            mean: x_l_l,
+            covariance: p_l_l,
+        } = kalman_store.get(l, l).unwrap();
+        let Gaussian {
+            mean: x_ln_l,
+            covariance: p_ln_l,
+        } = kalman_store.get(l + 1, l).unwrap();
+        let Gaussian {
+            mean: x_ln_k,
+            covariance: p_ln_k,
+        } = kalman_store.get(l + 1, *k).unwrap();
+
+        // transition matrix
+        // according to vl 4, p.19
+        let f_ln_l = matrix![
+            1., 0., RADAR_SWEEP_INTERVAL, 0.;
+            0., 1., 0., RADAR_SWEEP_INTERVAL;
+            0., 0., 1., 0.;
+            0., 0., 0., 1.;
+        ];
+        let w_l_ln = p_l_l * f_ln_l.transpose() * p_ln_l.try_inverse().unwrap();
+
+        let x_l_k = x_l_l + w_l_ln * (x_ln_k - x_ln_l);
+        let p_l_k = p_l_l + w_l_ln * (p_ln_k - p_ln_l) * w_l_ln.transpose();
+
+        kalman_store.set(
+            l,
+            *k,
+            Gaussian {
+                mean: x_l_k,
+                covariance: p_l_k,
+            },
+        );
+    }
 }
