@@ -11,6 +11,10 @@ impl Plugin for KalmanScene {
     fn build(&self, app: &mut App) {
         app.init_resource::<KalmanStore>()
             .add_systems(Update, update_kalman_store)
+            .add_systems(
+                Update,
+                render_kalman_points.run_if(resource_changed::<KalmanStore>),
+            )
             .add_observer(prediction)
             .add_observer(filtering);
     }
@@ -21,6 +25,9 @@ struct NewMeasurementEvent(pub TimeStep);
 
 #[derive(Event)]
 struct KalmanPredEvent(pub TimeStep);
+
+#[derive(Component)]
+struct BasedOn(pub TimeStep);
 
 #[derive(Clone, Debug)]
 pub struct Gaussian {
@@ -38,6 +45,8 @@ pub struct KalmanStore {
     /// Matrix with:
     /// - i as rows (the timestep this data was meant for)
     /// - given as colmuns (timestep of the sensor data it is based on)
+    ///
+    /// Accessed like: data[i][given]
     data: Vec<Vec<Option<Gaussian>>>,
 }
 impl Default for KalmanStore {
@@ -101,50 +110,97 @@ fn calc_r_k(phi_k: f32, r_k: f32, err_phi: f32, err_r: f32) -> Matrix2<f32> {
     d_pk * r_polar * d_pk.transpose()
 }
 
-fn render_gaussian(
-    commands: &mut Commands,
-    materials: &mut Assets<NormalDistMaterial>,
-    meshes: &mut Assets<Mesh>,
-    entity_type: impl Component,
-    mean: Vector4<f32>,
-    covariance: Matrix2<f32>,
-    id: TimeStep,
-) {
-    let eig = covariance.symmetric_eigen();
+fn calc_ellipse(gaussian: &Gaussian) -> (Ellipse, Transform) {
+    let eig = gaussian
+        .covariance
+        .fixed_view::<2, 2>(0, 0)
+        .symmetric_eigen();
 
     // calc error covariance half-width and half-height
     let half_width = eig.eigenvalues[0].sqrt();
     let half_height = eig.eigenvalues[1].sqrt();
     let shape = Ellipse::new(half_width, half_height);
 
-    // points should be pink gaussians
-    let color = Color::srgb(1., 0., 0.5).to_linear();
-    let material = NormalDistMaterial { color };
-
     // calc rotation of our first guess
     let lambda1 = eig.eigenvectors.column(0);
     let theta = f32::atan2(lambda1.y, lambda1.x);
     let rotation = Quat::from_rotation_z(theta);
     // and combine it with the position of the guessed point
-    let transform = Transform::from_xyz(mean.x, mean.y, 0.).with_rotation(rotation);
+    let transform =
+        Transform::from_xyz(gaussian.mean.x, gaussian.mean.y, 0.).with_rotation(rotation);
 
-    commands.spawn((
-        entity_type,
-        MeshMaterial2d(materials.add(material)),
-        Mesh2d(meshes.add(shape)),
-        transform,
-        id,
-    ));
+    (shape, transform)
 }
 
-fn update_kalman_store(
-    tweaks: Res<Tweaks>,
-    mut kalman_store: ResMut<KalmanStore>,
-    measurements: Query<(&PolarPosition, &SensorPos, &TimeStep), With<PolarMeasure>>,
-
+fn render_kalman_points(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<NormalDistMaterial>>,
+    kalman_store: Res<KalmanStore>,
+    kalman_points: Query<(Entity, &TimeStep, &BasedOn), With<KalmanPoint>>,
+) {
+    // points should be pink gaussians
+    let color = Color::srgb(1., 0., 0.5).to_linear();
+    let material = MeshMaterial2d(materials.add(NormalDistMaterial { color }));
+
+    let mut entities = Vec::with_capacity(kalman_store.data.len());
+    for (k, row) in kalman_store.data.iter().enumerate() {
+        // find the latest value at timestep k
+        let mut point = None;
+        let mut target_base = None;
+        for (b, x) in row.iter().enumerate().rev() {
+            if x.is_some() {
+                point = x.as_ref();
+                target_base = Some(b);
+                break;
+            }
+        }
+        if point.is_none() {
+            continue;
+        }
+        let point = point.unwrap();
+
+        // despawn the current entity for this timestep
+        let mut entity = None;
+        let mut cur_base = None;
+        for (e, ek, b) in kalman_points {
+            if ek.0 == k {
+                entity = Some(e);
+                cur_base = Some(b.0.0);
+                break;
+            }
+        }
+
+        // target entity already rendered
+        // -> skip it
+        if target_base == cur_base {
+            continue;
+        }
+
+        // despawn old entity
+        if let Some(entity) = entity {
+            commands.entity(entity).despawn();
+        }
+
+        // create target entity
+        let (shape, transform) = calc_ellipse(point);
+        entities.push((
+            KalmanPoint,
+            Mesh2d(meshes.add(shape)),
+            material.clone(),
+            transform,
+            TimeStep(k),
+            BasedOn(TimeStep(target_base.unwrap())),
+        ));
+    }
+    commands.spawn_batch(entities);
+}
+
+fn update_kalman_store(
+    mut commands: Commands,
+    mut kalman_store: ResMut<KalmanStore>,
+    tweaks: Res<Tweaks>,
+    measurements: Query<(&PolarPosition, &SensorPos, &TimeStep), With<PolarMeasure>>,
 ) {
     let latest_k = kalman_store.zs.len();
     let latest_measurements: Vec<(&PolarPosition, &SensorPos, &TimeStep)> = measurements
@@ -164,26 +220,14 @@ fn update_kalman_store(
 
         // if we need to initiate
         if kalman_store.get(0, 0).is_none() {
-            initiate(
-                &tweaks,
-                &mut commands,
-                &mut kalman_store,
-                &mut meshes,
-                &mut materials,
-            );
+            initiate(&tweaks, &mut kalman_store);
         } else {
             commands.trigger(NewMeasurementEvent(TimeStep(k.0)));
         }
     }
 }
 
-fn initiate(
-    tweaks: &Tweaks,
-    commands: &mut Commands,
-    kalman_store: &mut KalmanStore,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<NormalDistMaterial>,
-) {
+fn initiate(tweaks: &Tweaks, kalman_store: &mut KalmanStore) {
     // our first measurement
     let (z0_polar, sen_p) = &kalman_store.zs[0];
     let z0 = z0_polar.to_cartesian(sen_p.0);
@@ -211,16 +255,6 @@ fn initiate(
         0., 0., 0., tweaks.kalman_vmax.powi(2);
     ];
 
-    render_gaussian(
-        commands,
-        materials,
-        meshes,
-        KalmanPoint,
-        x00,
-        r0,
-        TimeStep(0),
-    );
-
     kalman_store.set(
         0,
         0,
@@ -235,8 +269,6 @@ fn prediction(
     event: On<NewMeasurementEvent>,
     tweaks: Res<Tweaks>,
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<NormalDistMaterial>>,
     mut kalman_store: ResMut<KalmanStore>,
 ) {
     println!("kalman pred");
@@ -276,16 +308,6 @@ fn prediction(
     let x_k_kp = f_k_kp * x_kp_kp;
     let p_k_kp = f_k_kp * p_kp_kp * f_k_kp.transpose() + d_k_kp;
 
-    render_gaussian(
-        &mut commands,
-        &mut materials,
-        &mut meshes,
-        KalmanPoint,
-        x_k_kp,
-        p_k_kp.fixed_view::<2, 2>(0, 0).into(),
-        event.0,
-    );
-
     // add our new guess as point
     kalman_store.set(
         *k,
@@ -303,11 +325,7 @@ fn prediction(
 fn filtering(
     event: On<KalmanPredEvent>,
     tweaks: Res<Tweaks>,
-    mut commands: Commands,
     mut kalman_store: ResMut<KalmanStore>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<NormalDistMaterial>>,
-    kalman_points: Query<(Entity, &TimeStep), With<KalmanPoint>>,
 ) {
     println!("kalman filter");
 
@@ -359,24 +377,4 @@ fn filtering(
         },
     );
 
-    // update visualisation
-    let last_points: Vec<Entity> = kalman_points
-        .iter()
-        .filter(|(_, id)| **id == k)
-        .map(|(e, _)| e)
-        .collect();
-    assert!(
-        last_points.len() == 1,
-        "expected one kalman point per computed time step"
-    );
-    commands.entity(last_points[0]).despawn();
-    render_gaussian(
-        &mut commands,
-        &mut materials,
-        &mut meshes,
-        KalmanPoint,
-        x_k_k,
-        p_k_k.fixed_view::<2, 2>(0, 0).into(),
-        event.0,
-    );
 }
