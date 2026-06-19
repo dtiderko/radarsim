@@ -93,7 +93,10 @@ fn tweaks_ui(
 
         ui.separator();
         ui.heading("World");
-        ui.toggle_value(&mut tweaks.auto_camera, "Auto Camera");
+        ui.horizontal(|ui| {
+            ui.toggle_value(&mut tweaks.auto_camera, "Auto Camera");
+            ui.label("Manual camera may only work in the native version, not browsers!")
+        });
         ui.add(egui::Slider::new(&mut tweaks.entity_scale, 0.1..=4.0).text("Entity Scale"));
         ui.add(egui::Slider::new(&mut tweaks.arrow_scale, 0.1..=16.0).text("Arrow Scale"));
         ui.add(egui::Slider::new(&mut tweaks.time_scale, 0.0..=100.0).text("Time Scale"));
