@@ -83,5 +83,5 @@ pub fn zoom_camera(
     let zoom_speed = 0.5;
     let zoom_factor = (mouse_wheel_input.delta.y * zoom_speed).exp();
 
-    orth.scale = (orth.scale / zoom_factor).clamp(0.1, 100.);
+    orth.scale = (orth.scale / zoom_factor).clamp(0.1, 1000.);
 }
