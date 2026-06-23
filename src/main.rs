@@ -7,6 +7,7 @@ use bevy_egui::prelude::*;
 use crate::{camera::*, common::*, normal_dist_material::NormalDistMaterial, tweaks::Tweaks};
 
 mod camera;
+mod chi_squared;
 mod common;
 mod kalman_scene;
 mod normal_dist_material;

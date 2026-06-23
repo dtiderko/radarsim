@@ -4,7 +4,7 @@ use bevy::{
 };
 use bevy_egui::prelude::*;
 
-use crate::{common::*, kalman_scene::KalmanStore};
+use crate::{chi_squared::CORRELATION_PROBS, common::*, kalman_scene::KalmanStore};
 
 #[derive(Resource)]
 pub struct Tweaks {
@@ -25,6 +25,8 @@ pub struct Tweaks {
     pub kalman_vmax: f32,
     /// in m/s^2
     pub kalman_acc_noise: f32,
+    /// 1 - P_c
+    pub kalman_correlation_prob: f32,
 }
 
 impl Default for Tweaks {
@@ -44,6 +46,7 @@ impl Default for Tweaks {
 
             kalman_vmax: 334.,
             kalman_acc_noise: 2.,
+            kalman_correlation_prob: 0.005,
         }
     }
 }
@@ -123,6 +126,17 @@ fn tweaks_ui(
             egui::Slider::new(&mut tweaks.kalman_acc_noise, 0.0..=20.)
                 .text("Acceleration Noise (m/s^2)"),
         );
+        egui::ComboBox::from_label("Correlation Probability")
+            .selected_text(format!("{}", 1. - tweaks.kalman_correlation_prob))
+            .show_ui(ui, |ui| {
+                for p in CORRELATION_PROBS {
+                    ui.selectable_value(
+                        &mut tweaks.kalman_correlation_prob,
+                        p,
+                        format!("{}", 1. - p),
+                    );
+                }
+            });
 
         ui.separator();
         ui.heading("Resets");

@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use nalgebra::{Matrix2, Matrix4, Vector4};
 use nalgebra::{matrix, vector};
 
+use crate::chi_squared::chi_squared;
 use crate::common::*;
 use crate::normal_dist_material::NormalDistMaterial;
 use crate::tweaks::*;
@@ -363,14 +364,30 @@ fn filtering(
 
     // innovation covariance
     let s_k_kp = h * p_k_kp * h.transpose() + r_k;
+    let s_k_kp_inv = s_k_kp.try_inverse().unwrap();
     // kalman gain matrix
-    let w_k_kp = p_k_kp * h.transpose() * s_k_kp.try_inverse().unwrap();
+    let w_k_kp = p_k_kp * h.transpose() * s_k_kp_inv;
 
     // innovation
     let v = z_k.0 - h * x_k_kp;
 
-    let x_k_k = x_k_kp + w_k_kp * v;
-    let p_k_k = p_k_kp - w_k_kp * s_k_kp * w_k_kp.transpose();
+    let innovation_square = v.transpose() * s_k_kp_inv * v;
+    let max_distance = chi_squared(tweaks.kalman_correlation_prob);
+
+    let x_k_k;
+    let p_k_k;
+
+    // expectation gate
+    if innovation_square[(0, 0)] > max_distance {
+        println!("kalman expectation gate skip");
+
+        // skip this measurement by accepting the prediction
+        x_k_k = x_k_kp;
+        p_k_k = p_k_kp;
+    } else {
+        x_k_k = x_k_kp + w_k_kp * v;
+        p_k_k = p_k_kp - w_k_kp * s_k_kp * w_k_kp.transpose();
+    }
 
     // update inferred data in store
     kalman_store.set(
