@@ -44,8 +44,8 @@ impl Default for Tweaks {
             show_cartesian: true,
             show_polar: true,
 
-            kalman_vmax: 334.,
-            kalman_acc_noise: 2.,
+            kalman_vmax: 400.,
+            kalman_acc_noise: 20.,
             kalman_correlation_prob: 0.005,
         }
     }
@@ -123,7 +123,7 @@ fn tweaks_ui(
                 .text("Max. Object Speed (m/s)"),
         );
         ui.add(
-            egui::Slider::new(&mut tweaks.kalman_acc_noise, 0.0..=20.)
+            egui::Slider::new(&mut tweaks.kalman_acc_noise, 0.0..=100.)
                 .text("Acceleration Noise (m/s^2)"),
         );
         egui::ComboBox::from_label("Correlation Probability")
