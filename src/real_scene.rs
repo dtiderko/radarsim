@@ -1,7 +1,13 @@
 use bevy::prelude::*;
-use nalgebra::vector;
+use nalgebra::{Vector2, vector};
 
 use crate::{common::*, tweaks::Tweaks};
+
+#[derive(Component, Debug, Default, Deref, DerefMut, Clone)]
+struct Velocity(pub Vector2<f32>);
+
+#[derive(Component, Debug, Default, Deref, DerefMut, Clone)]
+struct Acceleration(pub Vector2<f32>);
 
 pub struct RealScene;
 impl Plugin for RealScene {

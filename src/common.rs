@@ -44,9 +44,3 @@ impl PolarPosition {
 
 #[derive(Component, Debug, Default, Deref, DerefMut, Clone)]
 pub struct Position(pub Vector2<f32>);
-
-#[derive(Component, Debug, Default, Deref, DerefMut, Clone)]
-pub struct Velocity(pub Vector2<f32>);
-
-#[derive(Component, Debug, Default, Deref, DerefMut, Clone)]
-pub struct Acceleration(pub Vector2<f32>);
