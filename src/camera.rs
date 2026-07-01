@@ -1,4 +1,7 @@
-use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*};
+use bevy::{
+    input::mouse::{AccumulatedMouseScroll, MouseScrollUnit},
+    prelude::*,
+};
 
 pub fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
@@ -80,8 +83,15 @@ pub fn zoom_camera(
         _ => unimplemented!(),
     };
 
+    // ensure the zoom on the web is the same as on desktop
+    let normalized_delta = match mouse_wheel_input.unit {
+        MouseScrollUnit::Line => mouse_wheel_input.delta.y,
+        MouseScrollUnit::Pixel => {
+            mouse_wheel_input.delta.y / MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR
+        }
+    };
     let zoom_speed = 0.5;
-    let zoom_factor = (mouse_wheel_input.delta.y * zoom_speed).exp();
+    let zoom_factor = (normalized_delta * zoom_speed).exp();
 
     orth.scale = (orth.scale / zoom_factor).clamp(0.1, 1000.);
 }
