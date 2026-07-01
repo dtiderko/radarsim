@@ -294,8 +294,6 @@ fn prediction(
     mut commands: Commands,
     mut kalman_store: ResMut<KalmanStore>,
 ) {
-    println!("kalman pred");
-
     let k = event.0;
 
     // get our last guess
@@ -351,8 +349,6 @@ fn filtering(
     mut kalman_store: ResMut<KalmanStore>,
     tweaks: Res<Tweaks>,
 ) {
-    println!("kalman filter");
-
     let k = event.0;
 
     // predicted point
@@ -390,8 +386,6 @@ fn filtering(
 
     // expectation gate
     if innovation_square[(0, 0)] > max_distance {
-        println!("kalman expectation gate skip");
-
         // skip this measurement by accepting the prediction
         x_k_k = x_k_kp;
         p_k_k = p_k_kp;
@@ -419,8 +413,6 @@ fn retrodiction(
     mut kalman_store: ResMut<KalmanStore>,
     kalman_points: Query<&TimeStep, With<KalmanPoint>>,
 ) {
-    println!("kalman retro");
-
     let k = event.0;
 
     // sort in descending order
