@@ -113,7 +113,7 @@ fn update_render(mut query: Query<(&Position, &mut Transform), With<Aircraft>>) 
 
 fn draw_arrow(
     mut gizmos: Gizmos,
-    aircraft: Single<(&Position, &Velocity), With<Aircraft>>,
+    aircraft: Single<(&Position, &Velocity, &Acceleration), With<Aircraft>>,
     tweaks: Res<Tweaks>,
 ) {
     gizmos.arrow_2d(
@@ -123,5 +123,13 @@ fn draw_arrow(
             aircraft.0.y + aircraft.1.y * tweaks.arrow_scale,
         ),
         Color::srgb(1., 0., 0.),
+    );
+    gizmos.arrow_2d(
+        Vec2::new(aircraft.0.x, aircraft.0.y),
+        Vec2::new(
+            aircraft.0.x + aircraft.2.x * tweaks.arrow_scale,
+            aircraft.0.y + aircraft.2.y * tweaks.arrow_scale,
+        ),
+        Color::srgb(1., 1., 0.),
     );
 }
