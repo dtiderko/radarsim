@@ -7,7 +7,7 @@ pub struct RealScene;
 impl Plugin for RealScene {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_aircraft)
-            .add_systems(Startup, setup_sensor)
+            .add_systems(Update, setup_sensors.run_if(resource_changed::<Tweaks>))
             .add_systems(Update, (move_aircraft, update_render).chain())
             .add_systems(Update, draw_arrow);
     }
@@ -35,24 +35,45 @@ fn setup_aircraft(
     ));
 }
 
-fn setup_sensor(
+fn setup_sensors(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    existing_sensors: Query<Entity, With<Sensor>>,
+    tweaks: Res<Tweaks>,
 ) {
     let shape = meshes.add(Circle::new(100.0));
     let color = Color::srgb(0., 1., 0.);
-    let pos = Position(vector![5000., 5000.]);
 
-    commands.spawn((
-        Sensor,
-        // render
-        Mesh2d(shape),
-        MeshMaterial2d(materials.add(color)),
-        Transform::from_xyz(pos.x, pos.y, 0.),
-        // data
-        pos,
-    ));
+    let poss = vec![
+        vector![5000., 5000.],
+        vector![-20000., 10000.],
+        vector![10000., 12000.],
+        vector![-7000., -15000.],
+    ];
+
+    // first kill all remaining sensors
+    existing_sensors
+        .iter()
+        .for_each(|e| commands.entity(e).despawn());
+
+    // then spawn the new amount in
+    let sensors: Vec<_> = poss
+        .into_iter()
+        .take(tweaks.sensor_amount)
+        .map(|pos| {
+            (
+                Sensor,
+                // render
+                Mesh2d(shape.clone()),
+                MeshMaterial2d(materials.add(color)),
+                Transform::from_xyz(pos.x, pos.y, 0.),
+                // data
+                Position(pos),
+            )
+        })
+        .collect();
+    commands.spawn_batch(sensors);
 }
 
 fn move_aircraft(

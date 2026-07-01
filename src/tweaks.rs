@@ -13,6 +13,8 @@ pub struct Tweaks {
     pub arrow_scale: f32,
     pub time_scale: f32,
 
+    pub sensor_amount: usize,
+
     pub cartesian_sig: f32,
     pub polar_sig_range: f32,
     pub polar_sig_azimuth: f32,
@@ -36,6 +38,8 @@ impl Default for Tweaks {
             entity_scale: 1.0,
             arrow_scale: 1.0,
             time_scale: 1.0,
+
+            sensor_amount: 1,
 
             cartesian_sig: 50.0,
             polar_sig_range: 20.0,
@@ -103,6 +107,10 @@ fn tweaks_ui(
         ui.add(egui::Slider::new(&mut tweaks.entity_scale, 0.1..=4.0).text("Entity Scale"));
         ui.add(egui::Slider::new(&mut tweaks.arrow_scale, 0.1..=16.0).text("Arrow Scale"));
         ui.add(egui::Slider::new(&mut tweaks.time_scale, 0.0..=100.0).text("Time Scale"));
+
+        ui.separator();
+        ui.heading("Amounts");
+        ui.add(egui::Slider::new(&mut tweaks.sensor_amount, 1..=4).text("Sensor Amount"));
 
         ui.separator();
         ui.heading("Error");

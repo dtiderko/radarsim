@@ -89,7 +89,6 @@ fn render_polar(
 
     let normrnd = rand_distr::Normal::new(0., 1.).unwrap();
 
-    // TODO proper sensor data fusion (see email)
     let mut points = Vec::with_capacity(query.count());
     for sen_p in sensors {
         for tar_p in query {

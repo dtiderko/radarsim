@@ -17,4 +17,4 @@ Semester: SS26
     - Prediction using the Piecewise Constant White Acceleration Model (Lecture 4, Slide 18)
     - Filtering using Expectation Gates (Book 3.2.2) and Kalman Filtering (Book 3.3.1)
     - Retrodiction using Fixed Interval Smoothing (Book 3.4.1)
-- Everything using one sensor and one airplane
+- Everything using 1-4 sensors and one airplane

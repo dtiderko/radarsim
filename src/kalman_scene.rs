@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use nalgebra::{Matrix2, Matrix4, Vector4};
+use nalgebra::{Matrix2, Matrix4, Vector2, Vector4};
 use nalgebra::{matrix, vector};
 
 use crate::chi_squared::chi_squared;
@@ -45,7 +45,9 @@ pub struct Gaussian {
 #[derive(Resource)]
 pub struct KalmanStore {
     /// actual measurements in Cartesian coordinates
-    zs: Vec<(PolarPosition, SensorPos)>,
+    zs: Vec<Vector2<f32>>,
+    /// error covariance matricies
+    rs: Vec<Matrix2<f32>>,
 
     /// Matrix with:
     /// - i as rows (the timestep this data was meant for)
@@ -58,6 +60,7 @@ impl Default for KalmanStore {
     fn default() -> Self {
         Self {
             zs: vec![],
+            rs: vec![],
             data: vec![vec![]],
         }
     }
@@ -208,34 +211,56 @@ fn update_kalman_store(
     measurements: Query<(&PolarPosition, &SensorPos, &TimeStep), With<PolarMeasure>>,
 ) {
     let latest_k = kalman_store.zs.len();
-    let latest_measurements: Vec<(&PolarPosition, &SensorPos, &TimeStep)> = measurements
+    let latest_measurements = measurements
         .iter()
         .sort_by_key::<&TimeStep, _>(|x| x.0)
-        .filter(|x| x.2.0 == latest_k)
+        .filter(|x| x.2.0 == latest_k);
+
+    let with_inv_rs: Vec<(Vector2<f32>, Matrix2<f32>)> = latest_measurements
+        .map(|(z, sen_p, _)| {
+            (
+                z.to_cartesian(sen_p.0).0,
+                calc_r_k(
+                    z.y,
+                    z.x,
+                    tweaks.polar_sig_azimuth.to_radians(),
+                    tweaks.polar_sig_range,
+                )
+                .try_inverse()
+                .unwrap(),
+            )
+        })
         .collect();
-    assert!(
-        latest_measurements.len() <= 1,
-        "expected multiple measurements per radar sweep to have been fusioned"
-    );
 
     // if there is a new measurement
-    if let Some((pos, sen_p, k)) = latest_measurements.first() {
-        assert!(k.0 == kalman_store.zs.len()); // truely sorted
-        kalman_store.zs.push(((*pos).clone(), (*sen_p).clone()));
+    if !with_inv_rs.is_empty() {
+        // fusion of measurements
+        let r = with_inv_rs
+            .iter()
+            .map(|(_, r)| r)
+            .sum::<Matrix2<f32>>()
+            .try_inverse()
+            .unwrap();
+        let z = r * with_inv_rs.iter().map(|(z, r)| r * z).sum::<Vector2<f32>>();
+
+        // add measurement to store
+        kalman_store.zs.push(z);
+        kalman_store.rs.push(r);
 
         // if we need to initiate
         if kalman_store.get(0, 0).is_none() {
             initiate(&tweaks, &mut kalman_store);
         } else {
-            commands.trigger(NewMeasurementEvent(TimeStep(k.0)));
+            commands.trigger(NewMeasurementEvent(TimeStep(latest_k)));
         }
     }
 }
 
 fn initiate(tweaks: &Tweaks, kalman_store: &mut KalmanStore) {
     // our first measurement
-    let (z0_polar, sen_p) = &kalman_store.zs[0];
-    let z0 = z0_polar.to_cartesian(sen_p.0);
+    let z0 = &kalman_store.zs[0];
+    // error covariance matrix
+    let r0 = &kalman_store.rs[0];
 
     // our first predicted state x_{0|0}
     let x00 = vector![
@@ -245,13 +270,6 @@ fn initiate(tweaks: &Tweaks, kalman_store: &mut KalmanStore) {
         0.,   // vel y
     ];
 
-    // error covariance matrix R_{0}
-    let r0 = calc_r_k(
-        z0_polar.y,
-        z0_polar.x,
-        tweaks.polar_sig_azimuth.to_radians(),
-        tweaks.polar_sig_range,
-    );
     // our first covariance matrix
     let p00 = matrix![
         r0[(0,0)], r0[(0,1)], 0., 0.;
@@ -346,16 +364,9 @@ fn filtering(
         }
     };
     // sensor measurement
-    let z = &kalman_store.zs[*k];
-    let z_k = z.0.to_cartesian(z.1.0);
-
+    let z_k = &kalman_store.zs[*k];
     // measurement error matrix
-    let r_k = calc_r_k(
-        z.0.y,
-        z.0.x,
-        tweaks.polar_sig_azimuth.to_radians(),
-        tweaks.polar_sig_range,
-    );
+    let r_k = &kalman_store.rs[*k];
 
     let h = matrix![
         1., 0., 0., 0.;
@@ -369,7 +380,7 @@ fn filtering(
     let w_k_kp = p_k_kp * h.transpose() * s_k_kp_inv;
 
     // innovation
-    let v = z_k.0 - h * x_k_kp;
+    let v = z_k - h * x_k_kp;
 
     let innovation_square = v.transpose() * s_k_kp_inv * v;
     let max_distance = chi_squared(tweaks.kalman_correlation_prob);
