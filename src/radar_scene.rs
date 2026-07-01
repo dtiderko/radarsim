@@ -33,7 +33,7 @@ fn render_cartesian(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    query: Query<&Position, With<Aircraft>>,
+    aircraft_pos: Single<&Position, With<Aircraft>>,
     tweaks: Res<Tweaks>,
     radar_sweep_counter: Res<RadarSweepCounter>,
 ) {
@@ -43,43 +43,35 @@ fn render_cartesian(
 
     let normrnd = rand_distr::Normal::new(0., 1.).unwrap();
 
-    let mut points = Vec::with_capacity(query.count());
-    for p in query {
-        let noise = tweaks.cartesian_sig
-            * vector![
-                normrnd.sample(&mut rand::rng()),
-                normrnd.sample(&mut rand::rng()),
-            ];
+    let noise = tweaks.cartesian_sig
+        * vector![
+            normrnd.sample(&mut rand::rng()),
+            normrnd.sample(&mut rand::rng()),
+        ];
 
-        // Normally we would calc H * vector![pos.0, vel.0, acc.0] but
-        // Matrix H in the exercise is probably wrong and should be H=(I 0 0)
-        // Reason: It would not make sense to add the units: m + m/s + m/s^2
-        // Therefore we can omit vel and acc and with that H * ...
+    // Normally we would calc H * vector![pos.0, vel.0, acc.0] but
+    // Matrix H in the exercise is probably wrong and should be H=(I 0 0)
+    // Reason: It would not make sense to add the units: m + m/s + m/s^2
+    // Therefore we can omit vel and acc and with that H * ...
 
-        points.push(Position(p.0 + noise));
-    }
-
-    let k = TimeStep(radar_sweep_counter.0);
-    commands.spawn_batch(points.into_iter().map(move |p| {
-        (
-            CartesianMeasure,
-            // render
-            Mesh2d(shape.clone()),
-            MeshMaterial2d(material.clone()),
-            Transform::from_xyz(p.x, p.y, -1.),
-            Visibility::Visible,
-            // data
-            p,
-            k,
-        )
-    }));
+    commands.spawn((
+        CartesianMeasure,
+        // render
+        Mesh2d(shape.clone()),
+        MeshMaterial2d(material.clone()),
+        Transform::from_xyz(aircraft_pos.x, aircraft_pos.y, -1.),
+        Visibility::Visible,
+        // data
+        Position(aircraft_pos.0 + noise), // x_k + u_k
+        TimeStep(radar_sweep_counter.0),
+    ));
 }
 
 fn render_polar(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<NormalDistMaterial>>,
-    query: Query<&Position, With<Aircraft>>,
+    aircraft_pos: Single<&Position, With<Aircraft>>,
     sensors: Query<&Position, With<Sensor>>,
     tweaks: Res<Tweaks>,
     radar_sweep_counter: Res<RadarSweepCounter>,
@@ -89,52 +81,41 @@ fn render_polar(
 
     let normrnd = rand_distr::Normal::new(0., 1.).unwrap();
 
-    let mut points = Vec::with_capacity(query.count());
     for sen_p in sensors {
-        for tar_p in query {
-            let error = vector![
-                tweaks.polar_sig_range * normrnd.sample(&mut rand::rng()),
-                tweaks.polar_sig_azimuth.to_radians() * normrnd.sample(&mut rand::rng()),
-            ];
+        let error = vector![
+            tweaks.polar_sig_range * normrnd.sample(&mut rand::rng()),
+            tweaks.polar_sig_azimuth.to_radians() * normrnd.sample(&mut rand::rng()),
+        ];
 
-            let dist = tar_p.0 - sen_p.0;
-            let true_polar = vector![
-                (dist.x.powi(2) + dist.y.powi(2)).sqrt(), // range
-                dist.y.atan2(dist.x),                     // azimuth // arctan(dist_y / dist_x)
-            ];
+        let dist = aircraft_pos.0 - sen_p.0;
+        // x -> range; y -> azimuth
+        let true_polar = vector![
+            (dist.x.powi(2) + dist.y.powi(2)).sqrt(),
+            // in rust we have to use atan2 instead of arctan
+            f32::atan2(dist.y, dist.x),
+        ];
+        let polar = PolarPosition(true_polar + error);
 
-            let polar = PolarPosition(true_polar + error);
-            let cartesian = polar.to_cartesian(sen_p.0);
+        // calc the blob to render
+        let cartesian = polar.to_cartesian(sen_p.0);
+        let shape = meshes.add(Ellipse::new(
+            tweaks.polar_sig_range,
+            polar.x * tweaks.polar_sig_azimuth.to_radians().tan(),
+        ));
+        let transform = Transform::from_xyz(cartesian.x, cartesian.y, -1.0)
+            .with_rotation(Quat::from_rotation_z(polar.y));
 
-            let shape = meshes.add(Ellipse::new(
-                tweaks.polar_sig_range,
-                polar.x * tweaks.polar_sig_azimuth.to_radians().tan(),
-            ));
-
-            let transform = Transform::from_xyz(cartesian.x, cartesian.y, -1.0)
-                .with_rotation(Quat::from_rotation_z(polar.y));
-
-            points.push((transform, Mesh2d(shape), polar, SensorPos(sen_p.0)));
-        }
+        commands.spawn((
+            PolarMeasure,
+            // render
+            MeshMaterial2d(material.clone()),
+            Mesh2d(shape),
+            transform,
+            Visibility::Visible,
+            // data
+            polar,
+            SensorPos(sen_p.0),
+            TimeStep(radar_sweep_counter.0),
+        ));
     }
-
-    let k = TimeStep(radar_sweep_counter.0);
-    commands.spawn_batch(
-        points
-            .into_iter()
-            .map(move |(transform, mesh, pos, sen_p)| {
-                (
-                    PolarMeasure,
-                    // render
-                    MeshMaterial2d(material.clone()),
-                    mesh,
-                    transform,
-                    Visibility::Visible,
-                    // data
-                    pos,
-                    sen_p,
-                    k,
-                )
-            }),
-    );
 }

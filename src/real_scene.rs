@@ -84,7 +84,7 @@ fn setup_sensors(
 
 fn move_aircraft(
     sim_time: Res<SimTime>,
-    mut query: Query<(&mut Position, &mut Velocity, &mut Acceleration), With<Aircraft>>,
+    aircraft: Single<(&mut Position, &mut Velocity, &mut Acceleration), With<Aircraft>>,
 ) {
     const V: f32 = 300.; // m/s
     const Q: f32 = 9.; // m/s^2
@@ -92,22 +92,22 @@ fn move_aircraft(
     let a = V.powi(2) / Q;
     let w = Q / (2. * V);
 
-    for (mut pos, mut vel, mut acc) in &mut query {
-        pos.0 = vector![
-            a * f32::sin(w * sim_time.0),
-            a * f32::sin(2. * w * sim_time.0),
-        ];
+    let (mut pos, mut vel, mut acc) = aircraft.into_inner();
 
-        vel.0 = vector![
-            V * (f32::cos(w * sim_time.0) / 2.),
-            V * f32::cos(2. * w * sim_time.0),
-        ];
+    pos.0 = vector![
+        a * f32::sin(w * sim_time.0),
+        a * f32::sin(2. * w * sim_time.0),
+    ];
 
-        acc.0 = vector![
-            -Q * (f32::sin(w * sim_time.0) / 4.),
-            -Q * f32::sin(2. * w * sim_time.0),
-        ];
-    }
+    vel.0 = vector![
+        V * (f32::cos(w * sim_time.0) / 2.),
+        V * f32::cos(2. * w * sim_time.0),
+    ];
+
+    acc.0 = vector![
+        -Q * (f32::sin(w * sim_time.0) / 4.),
+        -Q * f32::sin(2. * w * sim_time.0),
+    ];
 }
 
 fn update_render(mut query: Query<(&Position, &mut Transform), With<Aircraft>>) {
