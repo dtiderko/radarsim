@@ -8,26 +8,43 @@ use crate::{chi_squared::CORRELATION_PROBS, common::*, kalman_scene::KalmanStore
 
 #[derive(Resource)]
 pub struct Tweaks {
+    /// Whether or not the camera should move and zoom automatically
     pub auto_camera: bool,
+    /// How much the entities should be scaled
+    /// (Useful if the screen your looking at is small)
     pub entity_scale: f32,
+    /// How much the velocity arrow on the aircraft should be scaled
+    /// (Useful if the screen your looking at is small)
     pub arrow_scale: f32,
+    /// How fast the simulation should run
     pub time_scale: f32,
 
+    /// The amount of sensors / radar stations to use (1 - 4)
     pub sensor_amount: usize,
 
+    /// The error of cartesian measuements
     pub cartesian_sig: f32,
+    /// The range error of polar measuements (in meters)
     pub polar_sig_range: f32,
+    /// The angle error of polar measuements (in degrees)
     pub polar_sig_azimuth: f32,
 
+    /// Whether or not to show cartesian measurements
     pub show_cartesian: bool,
+    /// Whether or not to show polar measurements
     pub show_polar: bool,
 
     /// Maximum object speed
-    /// max val is ~334 m/s (i think)
+    /// Used in the predictions of the kalman filter
+    /// in m/s
     pub kalman_vmax: f32,
+    /// How much the aircraft can accelerate
+    /// Used in the predictions of the kalman filter
     /// in m/s^2
     pub kalman_acc_noise: f32,
-    /// 1 - P_c
+    /// Used in the expectation gate to throw away far away measuements
+    /// value shown is 1 - P_c
+    /// values stored is P_c
     pub kalman_correlation_prob: f32,
 }
 
@@ -41,8 +58,11 @@ impl Default for Tweaks {
 
             sensor_amount: 1,
 
+            // according to lecture 3, slide 41
             cartesian_sig: 50.0,
+            // according to lecture 3, slide 41
             polar_sig_range: 20.0,
+            // according to lecture 3, slide 41
             polar_sig_azimuth: 0.2,
 
             show_cartesian: true,

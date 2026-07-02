@@ -3,9 +3,13 @@ use nalgebra::{Vector2, vector};
 
 use crate::{common::*, tweaks::Tweaks};
 
+/// The velocity of the airplane. It is given in the cartesian / kalman / absolute
+/// space
 #[derive(Component, Debug, Default, Deref, DerefMut, Clone)]
 struct Velocity(pub Vector2<f32>);
 
+/// The acceleration of the airplane. It is given in the cartesian / kalman /
+/// absolute space
 #[derive(Component, Debug, Default, Deref, DerefMut, Clone)]
 struct Acceleration(pub Vector2<f32>);
 
@@ -13,12 +17,13 @@ pub struct RealScene;
 impl Plugin for RealScene {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_aircraft)
-            .add_systems(Update, setup_sensors.run_if(resource_changed::<Tweaks>))
+            .add_systems(Update, spawn_sensors.run_if(resource_changed::<Tweaks>))
             .add_systems(Update, (move_aircraft, update_render).chain())
-            .add_systems(Update, draw_arrow);
+            .add_systems(Update, draw_arrows);
     }
 }
 
+/// Spawns the aircraft
 fn setup_aircraft(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -41,7 +46,8 @@ fn setup_aircraft(
     ));
 }
 
-fn setup_sensors(
+/// Spawns in the correct amount of sensors, according to tweaks.sensor_amount
+fn spawn_sensors(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -82,12 +88,13 @@ fn setup_sensors(
     commands.spawn_batch(sensors);
 }
 
+/// Moves the aircraft according to lecture 3, slide 40
 fn move_aircraft(
     sim_time: Res<SimTime>,
     aircraft: Single<(&mut Position, &mut Velocity, &mut Acceleration), With<Aircraft>>,
 ) {
-    const V: f32 = 300.; // m/s
-    const Q: f32 = 9.; // m/s^2
+    const V: f32 = 300.; // in m/s
+    const Q: f32 = 9.; // in m/s^2
 
     let a = V.powi(2) / Q;
     let w = Q / (2. * V);
@@ -110,6 +117,7 @@ fn move_aircraft(
     ];
 }
 
+/// Update the rendered position of the Aircraft
 fn update_render(mut query: Query<(&Position, &mut Transform), With<Aircraft>>) {
     for (sim_pos, mut render_pos) in &mut query {
         render_pos.translation[0] = sim_pos.x;
@@ -117,7 +125,8 @@ fn update_render(mut query: Query<(&Position, &mut Transform), With<Aircraft>>) 
     }
 }
 
-fn draw_arrow(
+/// Draw the velocity and acceleration arrows of the aircraft
+fn draw_arrows(
     mut gizmos: Gizmos,
     aircraft: Single<(&Position, &Velocity, &Acceleration), With<Aircraft>>,
     tweaks: Res<Tweaks>,

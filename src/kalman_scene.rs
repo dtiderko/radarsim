@@ -22,18 +22,34 @@ impl Plugin for KalmanScene {
     }
 }
 
+/// This event gets triggered by the update_kalman_store function once the kalman
+/// filter is initiated and a new measurement is available.
+///
+/// Listening is the prediction function.
 #[derive(Event)]
 struct NewMeasurementEvent(pub TimeStep);
 
+/// This event gets triggered by the prediction function once the prediction got
+/// made.
+///
+/// Listening is the filtering function.
 #[derive(Event)]
 struct KalmanPredEvent(pub TimeStep);
 
+/// This event gets triggered by the filtering function once the filtering and
+/// expectation gating got done.
+///
+/// Listening is the retrodiction function.
 #[derive(Event)]
 struct KalmanFilterEvent(pub TimeStep);
 
+/// This compontent is used by the render_kalman_points function to efficiently
+/// decide which points to keep and which to destroy in favor of newer points.
 #[derive(Component)]
 struct BasedOn(pub TimeStep);
 
+/// Represents a point guessed by the kalman filter
+/// It can be interpreted as a normal distribution
 #[derive(Clone, Debug)]
 pub struct Gaussian {
     /// inferred point with (pos.x, pos.y, vel.x, vel.y)^T
@@ -42,6 +58,7 @@ pub struct Gaussian {
     covariance: Matrix4<f32>,
 }
 
+/// Stores the results of the kalman filter in a upper right corner matrix
 #[derive(Resource)]
 pub struct KalmanStore {
     /// actual measurements in Cartesian coordinates
@@ -66,14 +83,14 @@ impl Default for KalmanStore {
     }
 }
 impl KalmanStore {
-    /// Get the Gaussian g_{i|given} as seen in the book
+    /// Get the Gaussian g_{i|given} as seen in the book and lectures
     pub fn get(&self, i: usize, given: usize) -> Option<&Gaussian> {
         let givens = self.data.get(i);
         let ret = givens.and_then(|x| x.get(given));
         ret.and_then(|x| x.into())
     }
 
-    /// Set the Gaussian at g_{i|given} as seen in the book
+    /// Set the Gaussian at g_{i|given} as seen in the book and lectures
     pub fn set(&mut self, i: usize, given: usize, gaussian: Gaussian) {
         // fill in missing rows
         let num_cols = self.data.first().map(|x| x.len()).unwrap_or(0);
@@ -118,6 +135,7 @@ fn calc_r_k(phi_k: f32, r_k: f32, err_phi: f32, err_r: f32) -> Matrix2<f32> {
     d_pk * r_polar * d_pk.transpose()
 }
 
+/// Calculate the rendered ellipse (rotation and size) of a given gaussian.
 fn calc_ellipse(gaussian: &Gaussian) -> (Ellipse, Transform) {
     let eig = gaussian
         .covariance
@@ -140,6 +158,7 @@ fn calc_ellipse(gaussian: &Gaussian) -> (Ellipse, Transform) {
     (shape, transform)
 }
 
+/// Render all the latest kalman points (x_{latest_k|lastest_k})
 fn render_kalman_points(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -204,6 +223,11 @@ fn render_kalman_points(
     commands.spawn_batch(entities);
 }
 
+/// Update the kalman store with the newest measurements and start the initiation
+/// or the prediction
+///
+/// This will also fusion all measurements of timestep k, calc the cartesian
+/// position of the fusioned result and calc the error (R) of the fusioned result.
 fn update_kalman_store(
     mut commands: Commands,
     mut kalman_store: ResMut<KalmanStore>,
@@ -235,12 +259,14 @@ fn update_kalman_store(
     // if there is a new measurement
     if !with_inv_rs.is_empty() {
         // fusion of measurements
+        // with only one sensor we have let r = r; since R^(-1)^(-1) = R
         let r = with_inv_rs
             .iter()
             .map(|(_, r)| r)
             .sum::<Matrix2<f32>>()
             .try_inverse()
             .unwrap();
+        // with only one sensor we have let z = z; since R * R^-1 = I
         let z = r * with_inv_rs.iter().map(|(z, r)| r * z).sum::<Vector2<f32>>();
 
         // add measurement to store
@@ -256,6 +282,7 @@ fn update_kalman_store(
     }
 }
 
+/// Initiate the kalman filter according to book p. 60, section 3.1.4
 fn initiate(tweaks: &Tweaks, kalman_store: &mut KalmanStore) {
     // our first measurement
     let z0 = &kalman_store.zs[0];
@@ -288,6 +315,8 @@ fn initiate(tweaks: &Tweaks, kalman_store: &mut KalmanStore) {
     );
 }
 
+/// Make a kalman prediction with the piecewise constant white acceleration model
+/// according to lecture 4, slide 18f
 fn prediction(
     event: On<NewMeasurementEvent>,
     tweaks: Res<Tweaks>,
@@ -343,6 +372,9 @@ fn prediction(
     commands.trigger(KalmanPredEvent(k));
 }
 
+/// Ignore all measurements outside of the expectiation gate according to book
+/// p. 61f, section 3.2.2 and filter the prediction with actual measurements
+/// according to book p.65, section 3.3.1
 fn filtering(
     event: On<KalmanPredEvent>,
     mut commands: Commands,
@@ -408,6 +440,8 @@ fn filtering(
     commands.trigger(KalmanFilterEvent(k));
 }
 
+/// Perform the retrodiction using the fixed interval smoothing according to book
+/// p. 72, section 3.4.1
 fn retrodiction(
     event: On<KalmanFilterEvent>,
     mut kalman_store: ResMut<KalmanStore>,
@@ -415,7 +449,7 @@ fn retrodiction(
 ) {
     let k = event.0;
 
-    // sort in descending order
+    // sort in descending order (newest to oldest)
     let sorted = kalman_points
         .iter()
         .sort_by_key::<&TimeStep, _>(|x| x.0)
@@ -439,7 +473,7 @@ fn retrodiction(
         } = kalman_store.get(l + 1, *k).unwrap();
 
         // transition matrix
-        // according to vl 4, p.19
+        // according to lecture 4, slide 19
         let f_ln_l = matrix![
             1., 0., RADAR_SWEEP_INTERVAL, 0.;
             0., 1., 0., RADAR_SWEEP_INTERVAL;

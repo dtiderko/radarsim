@@ -18,6 +18,7 @@ impl Plugin for RadarScene {
     }
 }
 
+/// ensure the radar sweep counter increases every 5s
 fn update_radar_sweep_counter(
     sim_time: Res<SimTime>,
     mut radar_sweep_counter: ResMut<RadarSweepCounter>,
@@ -29,6 +30,7 @@ fn update_radar_sweep_counter(
     }
 }
 
+/// Simulates cartesian measuements according to lecture 3, slide 41
 fn render_cartesian(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -41,8 +43,10 @@ fn render_cartesian(
     let color = Color::srgb(0., 1., 1.);
     let material = materials.add(color);
 
+    // the random number generator we have to use
     let normrnd = rand_distr::Normal::new(0., 1.).unwrap();
 
+    // u_k
     let noise = tweaks.cartesian_sig
         * vector![
             normrnd.sample(&mut rand::rng()),
@@ -67,6 +71,7 @@ fn render_cartesian(
     ));
 }
 
+/// Simulates polar measuements according to lecture 3, slide 41
 fn render_polar(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -79,8 +84,11 @@ fn render_polar(
     let color = Color::srgb(1., 1., 0.).to_linear();
     let material = materials.add(NormalDistMaterial { color });
 
+    // the random number generator we have to use
     let normrnd = rand_distr::Normal::new(0., 1.).unwrap();
 
+    // for each sensor we spawn the polar measuements seperately
+    // fusion is done later in the kalman filter
     for sen_p in sensors {
         let error = vector![
             tweaks.polar_sig_range * normrnd.sample(&mut rand::rng()),
