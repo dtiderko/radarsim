@@ -35,20 +35,27 @@ devenv shell
 With that all required dependencies will be installed temporarily, until you exit
 the shell.
 
-If you want to install everything manually, you will at least need:
+I haven't tested a manual install myself but if you want to do that, you will
+probably need everything the devenv would install:
+- [rust](https://rust-lang.org/tools/install/)
 - alsa-lib
 - binaryen
 - clang
+- http-server
 - libc
+- libudev-zero
 - libx11
+- libxcursor
+- libxi
 - libxkbcommon
+- libxrandr
 - mold
+- nixgl.nixGLIntel # should work on any system
 - pkg-config
 - udev
 - vulkan-loader
+- vulkan-tools
 - wayland
-
-There may be more or less dependencies but I have not tested a manual install.
 
 ### Compilation and running
 
@@ -59,12 +66,21 @@ As already said, you can choose between the native or web version.
 ```bash
 cargo build --release
 ./target/release/radarsim
+
+# or just
+
+cargo run --run_release
 ```
 
-or just 
+If your using devenv on a non-Nixos system you will need `nixGLIntel` at the
+start of the command to run the program:
 
 ```bash
-cargo run --release
+nixGLIntel cargo run --release
+
+# or just
+
+run_release
 ```
 
 #### Web
