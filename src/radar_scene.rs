@@ -9,12 +9,14 @@ use crate::tweaks::*;
 pub struct RadarScene;
 impl Plugin for RadarScene {
     fn build(&self, app: &mut App) {
-        app.insert_resource(RadarSweepCounter(0))
-            .add_systems(Update, update_radar_sweep_counter)
-            .add_systems(
-                Update,
+        app.insert_resource(RadarSweepCounter(0)).add_systems(
+            Update,
+            (
+                update_radar_sweep_counter,
                 (render_cartesian, render_polar).run_if(resource_changed::<RadarSweepCounter>),
-            );
+            )
+                .chain(),
+        );
     }
 }
 
