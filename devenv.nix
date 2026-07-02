@@ -33,8 +33,4 @@ in
   scripts.rundyn.exec = ''
     cargo run --features bevy/dynamic_linking
   '';
-
-  git-hooks.hooks = {
-    clippy.enable = true;
-  };
 }
